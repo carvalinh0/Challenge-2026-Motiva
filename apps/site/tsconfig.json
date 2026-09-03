@@ -1,0 +1,6 @@
+{
+  // Arquivo-solução: não checa nada por si só, só aponta para os dois
+  // contextos do projeto. `tsc -b` (script `typecheck`) roda os dois.
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+}

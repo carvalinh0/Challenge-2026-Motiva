@@ -1,0 +1,32 @@
+{
+  "name": "api-sensores",
+  "main": "src/main.ts",
+  "engines": {
+    "bun": "1.3.14"
+  },
+  "scripts": {
+    "postinstall": "prisma generate",
+    "start": "sh ./scripts/start.sh",
+    "dev": "bun run --watch src/main.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
+    "db:seed": "bun run scripts/seed-history.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.4",
+    "@prisma/adapter-libsql": "^7.9.1",
+    "@prisma/client": "^7.9.1",
+    "hono": "^4.13.2",
+    "mqtt": "^5.10.1",
+    "prisma": "^7.9.1",
+    "zod": "^4.4.3"
+  },
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "dotenv": "^17.4.2"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+database.sqlite
+*.db
+*.db-journal
+
+# Client do Prisma — gerado por `bun run db:generate`, nunca versionado.
+/generated

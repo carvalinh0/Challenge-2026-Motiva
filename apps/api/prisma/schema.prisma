@@ -1,0 +1,52 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Proxy e sensor comum vivem na MESMA tabela: no domínio da mesh o proxy
+// também é um sensor (mede e reporta como qualquer outro), só que com o papel
+// extra de ponte MQTT. É por isso que `type` discrimina em vez de haver duas
+// tabelas — e por isso a auto-relação abaixo (um proxy tem vários sensores).
+model Sensor {
+  id        String    @id
+  name      String?
+  latitude  Float?
+  longitude Float?
+  type      String    @default("sensor")
+  // NODE_ID na mesh LoRa (ver apps/sensor/config.h). Único porque é o
+  // endereço do nó no rádio — dois nós com o mesmo id tornariam impossível
+  // saber de quem veio uma medição que chega por MQTT.
+  nodeId    Int?      @unique @map("node_id")
+  proxyId   String?   @map("proxy_id")
+  // Atualizado a cada resposta da mesh (medição, healthcheck ou calibração).
+  // É o que decide "ativo" vs "perdido" na listagem.
+  lastSeen  DateTime? @map("last_seen")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  proxy        Sensor?       @relation("ProxySensors", fields: [proxyId], references: [id], onDelete: SetNull)
+  sensors      Sensor[]      @relation("ProxySensors")
+  measurements Measurement[]
+
+  @@map("sensors")
+}
+
+model Measurement {
+  id        Int      @id @default(autoincrement())
+  sensorId  String   @map("sensor_id")
+  // 0 = abaixo do limite, 1 = acima, 2 = sem leitura confiável. Mesmo código
+  // que sai do firmware (ver apps/sensor/command_dispatcher.h) — a API não
+  // reinterpreta.
+  value     Int
+  timestamp DateTime @default(now())
+
+  sensor Sensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  // Toda leitura de histórico é "medições deste sensor, mais recentes
+  // primeiro" — sem esse índice vira full scan conforme a tabela cresce.
+  @@index([sensorId, timestamp])
+  @@map("measurements")
+}

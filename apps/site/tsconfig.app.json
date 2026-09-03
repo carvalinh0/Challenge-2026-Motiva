@@ -1,0 +1,40 @@
+{
+  // Código da aplicação: roda no NAVEGADOR. `types` não inclui "node" de
+  // propósito — assim um `process.env` esquecido num componente falha na
+  // checagem em vez de quebrar só em produção.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    // O Vite transpila; o tsc aqui só checa tipos.
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    // Índices e acessos opcionais devolvem `| undefined` — evita confiar em
+    // posição de array ou chave de objeto que pode não existir.
+    "noUncheckedIndexedAccess": true,
+
+    "types": ["vite/client"],
+
+    // Imports absolutos a partir de src/: `@/features/auth` em vez de
+    // "../../../features/auth". Precisa existir também no vite.config.
+    // (O TypeScript 7 removeu `baseUrl`; os caminhos são relativos a este
+    // arquivo, daí o "./".)
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}

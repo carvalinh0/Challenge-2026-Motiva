@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* O balão do Leaflet é pintado pelo leaflet.css, fora do alcance do Tailwind:
+ * fundo branco fixo no wrapper e na setinha. Sem isto o popup fica branco
+ * sobre o tema escuro. */
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip {
+  background: var(--color-gray-700);
+  color: var(--color-gray-100);
+}
+
+.dark .leaflet-popup-close-button {
+  color: var(--color-gray-300);
+}

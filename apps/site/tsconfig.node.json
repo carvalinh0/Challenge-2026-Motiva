@@ -1,0 +1,23 @@
+{
+  // Arquivos de configuração: rodam no NODE, não no navegador. Só aqui os
+  // tipos de node ficam disponíveis (o vite.config importa "node:url").
+  //
+  // Sem essa separação, ou o vite.config não compila (foi o erro
+  // TS2591 no build do Railway), ou os globais de Node vazam para o código
+  // do navegador.
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "skipLibCheck": true,
+    "strict": true,
+    "types": ["node"]
+  },
+  "include": ["vite.config.ts"]
+}
