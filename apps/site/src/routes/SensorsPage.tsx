@@ -33,7 +33,8 @@ export function SensorsPage() {
 
   async function submitForm(id: number, data: SensorInput) {
     if (modal?.mode === "edit") await sensorsApi.update(id, data);
-    else if (modal?.mode === "createProxy") await sensorsApi.createProxy(id, data);
+    else if (modal?.mode === "createProxy")
+      await sensorsApi.createProxy(id, data);
     else await sensorsApi.create(id, data);
     await reload();
   }

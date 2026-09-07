@@ -32,7 +32,9 @@ export function AppLayout() {
         darkMode={darkMode}
         setDarkMode={setDarkMode}
       />
-      <Outlet context={context} />
+      <div className="flex-1 lg:ml-64 min-w-0">
+        <Outlet context={context} />
+      </div>
     </div>
   );
 }

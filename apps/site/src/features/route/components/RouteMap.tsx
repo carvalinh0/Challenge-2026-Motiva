@@ -1,8 +1,19 @@
 import { useMemo } from "react";
-import { MapContainer, Marker, Polyline, Popup, TileLayer } from "react-leaflet";
+import {
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { LatLngExpression, LatLngTuple } from "leaflet";
-import { ClickToPick, FitBounds, numberedIcon, pinIcon } from "@/lib/leafletMap";
+import {
+  ClickToPick,
+  FitBounds,
+  numberedIcon,
+  pinIcon,
+} from "@/lib/leafletMap";
 import type { GeoPoint } from "@/types/sensor";
 
 const BASE_HEX = "#111827";
@@ -30,9 +41,11 @@ function tuple(point: GeoPoint): LatLngTuple {
 export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
   const bounds = useMemo<LatLngTuple[]>(
     () =>
-      [...(base ? [base] : []), ...stops.map((s) => s.point), ...leftOut.map((s) => s.point)].map(
-        tuple,
-      ),
+      [
+        ...(base ? [base] : []),
+        ...stops.map((s) => s.point),
+        ...leftOut.map((s) => s.point),
+      ].map(tuple),
     [base, stops, leftOut],
   );
 
@@ -49,7 +62,11 @@ export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
   const center: LatLngExpression = bounds[0] ?? [-15.78, -47.93];
 
   return (
-    <MapContainer center={center} zoom={12} className="h-[28rem] rounded-lg">
+    <MapContainer
+      center={center}
+      zoom={12}
+      className="h-[calc(100vh-19rem)] min-h-[28rem] rounded-lg"
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -57,7 +74,9 @@ export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
       <FitBounds points={bounds} />
       <ClickToPick onPick={onPickBase} />
 
-      {line.length > 0 && <Polyline positions={line} color={STOP_HEX} weight={4} opacity={0.7} />}
+      {line.length > 0 && (
+        <Polyline positions={line} color={STOP_HEX} weight={4} opacity={0.7} />
+      )}
 
       {base && (
         <Marker position={tuple(base)} icon={pinIcon(BASE_HEX)}>
@@ -66,7 +85,11 @@ export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
       )}
 
       {leftOut.map((item) => (
-        <Marker key={item.id} position={tuple(item.point)} icon={pinIcon(LEFT_OUT_HEX)}>
+        <Marker
+          key={item.id}
+          position={tuple(item.point)}
+          icon={pinIcon(LEFT_OUT_HEX)}
+        >
           <Popup>{item.id} — fora do roteiro de hoje</Popup>
         </Marker>
       ))}

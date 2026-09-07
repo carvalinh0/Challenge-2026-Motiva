@@ -13,7 +13,7 @@ export function PageHeader({ title, children }: PageHeaderProps) {
   const { setSidebarOpen } = useLayoutContext();
 
   return (
-    <header className="flex items-center justify-between gap-4 bg-white p-4 dark:bg-gray-700">
+    <header className="flex flex-col items-start gap-3 bg-white p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4 dark:bg-gray-700">
       <div className="flex items-center gap-3">
         <button
           className="cursor-pointer text-2xl font-bold lg:hidden dark:text-white"
@@ -25,7 +25,11 @@ export function PageHeader({ title, children }: PageHeaderProps) {
         <h1 className="text-2xl font-bold dark:text-white">{title}</h1>
       </div>
 
-      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
+      {children && (
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+          {children}
+        </div>
+      )}
     </header>
   );
 }

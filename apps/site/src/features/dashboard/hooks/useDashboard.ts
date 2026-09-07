@@ -84,17 +84,7 @@ export function useDashboard() {
     });
   }, [reload]);
 
-  const stats = useMemo(() => {
-    const sensorNodes = sensors.filter((s) => s.type === "sensor");
-    const proxies = sensors.filter((s) => s.type === "proxy");
-    return {
-      sensorNodes,
-      proxies,
-      altos: sensorNodes.filter((s) => getNivel(s) === NIVEL.ALTO).length,
-      baixos: sensorNodes.filter((s) => getNivel(s) === NIVEL.BAIXO).length,
-      perdidos: sensors.filter((s) => !s.active).length,
-    };
-  }, [sensors]);
+  const stats = useMemo(() => computeDashboardStats(sensors), [sensors]);
 
   // A priorização de roçada NÃO mora aqui: ela é um cálculo puro em
   // utils/mowingEstimate (altura estimada a partir do tempo detectando), usado
@@ -102,4 +92,17 @@ export function useDashboard() {
   // definição de "próxima ação" neste hook só criaria duas respostas
   // divergentes para a mesma pergunta.
   return { sensors, loading, error, events, stats, reload, handleError };
+}
+
+// fora do hook, no mesmo arquivo
+export function computeDashboardStats(sensors: SensorSummary[]) {
+  const sensorNodes = sensors.filter((s) => s.type === "sensor");
+  const proxies = sensors.filter((s) => s.type === "proxy");
+  return {
+    sensorNodes,
+    proxies,
+    altos: sensorNodes.filter((s) => getNivel(s) === NIVEL.ALTO).length,
+    baixos: sensorNodes.filter((s) => getNivel(s) === NIVEL.BAIXO).length,
+    perdidos: sensors.filter((s) => !s.active).length,
+  };
 }
