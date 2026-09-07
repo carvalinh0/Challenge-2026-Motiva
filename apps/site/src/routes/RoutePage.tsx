@@ -5,16 +5,26 @@ import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { useDashboard } from "@/features/dashboard";
-import { RouteItinerary, RouteMap, RouteSettingsForm, useRoutePlan } from "@/features/route";
+import {
+  RouteItinerary,
+  RouteMap,
+  RouteSettingsForm,
+  useRoutePlan,
+} from "@/features/route";
 import { addMinutesToClock, formatDuration } from "@/utils/format";
 
 export function RoutePage() {
-  const { sensors, loading: loadingSensors, error: sensorsError } = useDashboard();
+  const {
+    sensors,
+    loading: loadingSensors,
+    error: sensorsError,
+  } = useDashboard();
   const { settings, update, candidates, plan, matrixSource, loading, error } =
     useRoutePlan(sensors);
 
   const pointById = useMemo(
-    () => new Map(candidates.map((candidate) => [candidate.id, candidate.point])),
+    () =>
+      new Map(candidates.map((candidate) => [candidate.id, candidate.point])),
     [candidates],
   );
 
@@ -48,21 +58,25 @@ export function RoutePage() {
       <PageHeader title="Roteiro do dia" />
 
       {sensorsError && (
-        <Alert tone="error">Não foi possível carregar os sensores: {sensorsError}</Alert>
+        <Alert tone="error">
+          Não foi possível carregar os sensores: {sensorsError}
+        </Alert>
       )}
       {error && <Alert tone="error">{error}</Alert>}
 
       {matrixSource === "haversine" && (
         <Alert tone="info">
-          O serviço de rotas não respondeu. Os tempos abaixo são uma estimativa em linha
-          reta a 60 km/h — use como ordem de grandeza, não como previsão.
+          O serviço de rotas não respondeu. Os tempos abaixo são uma estimativa
+          em linha reta a 60 km/h — use como ordem de grandeza, não como
+          previsão.
         </Alert>
       )}
 
       {plan && plan.overtimeSeconds > 0 && (
         <Alert tone="error">
-          Este roteiro passa {formatDuration(plan.overtimeSeconds)} da jornada de{" "}
-          {settings.workdayHours}h. Reduza o número de paradas ou aumente a jornada.
+          Este roteiro passa {formatDuration(plan.overtimeSeconds)} da jornada
+          de {settings.workdayHours}h. Reduza o número de paradas ou aumente a
+          jornada.
         </Alert>
       )}
 
@@ -95,7 +109,9 @@ export function RoutePage() {
           title={slackSeconds < 0 ? "Hora extra" : "Folga"}
           info={plan ? formatDuration(Math.abs(slackSeconds)) : "—"}
           hint={
-            plan ? `volta à base ${addMinutesToClock(settings.departure, plan.totalSeconds / 60)}` : "—"
+            plan
+              ? `volta à base ${addMinutesToClock(settings.departure, plan.totalSeconds / 60)}`
+              : "—"
           }
           icon={TriangleAlert}
           titleClassName={
@@ -120,7 +136,9 @@ export function RoutePage() {
             base={settings.base}
             stops={mapStops}
             leftOut={mapLeftOut}
-            onPickBase={(latitude, longitude) => update({ base: { latitude, longitude } })}
+            onPickBase={(latitude, longitude) =>
+              update({ base: { latitude, longitude } })
+            }
           />
         </Panel>
 
@@ -134,7 +152,9 @@ export function RoutePage() {
             description="Escolhida por prioridade e tempo de deslocamento."
             actions={
               loading || loadingSensors ? (
-                <span className="text-xs text-gray-500 dark:text-gray-300">calculando…</span>
+                <span className="text-xs text-gray-500 dark:text-gray-300">
+                  calculando…
+                </span>
               ) : undefined
             }
           >

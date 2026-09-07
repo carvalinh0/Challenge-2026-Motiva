@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -15,18 +15,22 @@ import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { ApiError } from "@/lib/httpClient";
 import { useAuth } from "@/features/auth";
+import { getNivel, NIVEL } from "@/utils/sensorStatus";
 import {
   MeshLiveFeed,
   NextAction,
   PrioritySensors,
   SensorMap,
   StatusDonut,
+  StatusFilter,
+  computeDashboardStats,
   dashboardApi,
   useDashboard,
 } from "@/features/dashboard";
 import type { FeedbackMessage } from "@/features/sensors";
 
 type BroadcastKind = "health" | "measure";
+type FilterableNivel = typeof NIVEL.ALTO | typeof NIVEL.BAIXO;
 
 export function DashboardPage() {
   const { logout } = useAuth();
@@ -35,13 +39,39 @@ export function DashboardPage() {
   const [broadcast, setBroadcast] = useState<BroadcastKind | null>(null);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
 
+  // ↓ NOVO: estado do filtro de status e do sensor selecionado no mapa
+  const [statusFilter, setStatusFilter] = useState<FilterableNivel | null>(
+    null,
+  );
+  const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null);
+
+  // ↓ NOVO: lista filtrada, e stats recalculado em cima dela
+  const filteredSensors = useMemo(() => {
+    if (!statusFilter) return sensors;
+    return sensors.filter((s) => getNivel(s) === statusFilter);
+  }, [sensors, statusFilter]);
+
+  const filteredStats = useMemo(
+    () => computeDashboardStats(filteredSensors),
+    [filteredSensors],
+  );
+
+  // ↓ NOVO: troca o filtro e limpa a seleção do mapa (evita focar um sensor
+  // que sumiu da lista filtrada)
+  function handleFilterChange(value: FilterableNivel | null) {
+    setStatusFilter(value);
+    setSelectedSensorId(null);
+  }
+
   async function runBroadcast(kind: BroadcastKind) {
     setBroadcast(kind);
     setFeedback(null);
     try {
       if (kind === "health") {
         const result = await dashboardApi.healthBroadcast();
-        const alive = (result?.status ?? []).filter((node) => node.alive).length;
+        const alive = (result?.status ?? []).filter(
+          (node) => node.alive,
+        ).length;
         setFeedback({
           tone: "success",
           text: `${alive} de ${result?.status?.length ?? 0} nó(s) responderam ao healthcheck.`,
@@ -114,31 +144,38 @@ export function DashboardPage() {
       {broadcast && (
         <Alert tone="info">
           Comando enviado para a mesh. A janela de resposta é de ~30s
-          {broadcast === "measure" ? " (medição pode passar de 1min)" : ""} — os nós
-          respondem conforme acordam.
+          {broadcast === "measure" ? " (medição pode passar de 1min)" : ""} — os
+          nós respondem conforme acordam.
         </Alert>
       )}
 
-      {error && <Alert tone="error">Não foi possível carregar os sensores: {error}</Alert>}
+      {error && (
+        <Alert tone="error">
+          Não foi possível carregar os sensores: {error}
+        </Alert>
+      )}
+
+      {/* ↓ NOVO: botões de filtro */}
+      <StatusFilter value={statusFilter} onChange={handleFilterChange} />
 
       <div className="grid grid-cols-2 gap-4 p-4 lg:grid-cols-5">
         <Card
           title="Sensores"
-          info={loading ? "…" : stats.sensorNodes.length}
+          info={loading ? "…" : filteredStats.sensorNodes.length}
           icon={RadioTower}
           titleClassName="text-black dark:text-white"
           infoClassName="text-black dark:text-white"
         />
         <Card
           title="Proxys"
-          info={loading ? "…" : stats.proxies.length}
+          info={loading ? "…" : filteredStats.proxies.length}
           icon={Wifi}
           titleClassName="text-[#5e22f3] dark:text-[#8f61ff]"
           infoClassName="text-[#5e22f3] dark:text-[#8f61ff]"
         />
         <Card
           title="Altos"
-          info={loading ? "…" : stats.altos}
+          info={loading ? "…" : filteredStats.altos}
           hint="Acima do limite"
           icon={AlertTriangle}
           titleClassName="text-red-700 dark:text-red-400"
@@ -146,7 +183,7 @@ export function DashboardPage() {
         />
         <Card
           title="Baixos"
-          info={loading ? "…" : stats.baixos}
+          info={loading ? "…" : filteredStats.baixos}
           hint="Abaixo do limite"
           icon={Signal}
           titleClassName="text-green-700 dark:text-green-500"
@@ -154,7 +191,7 @@ export function DashboardPage() {
         />
         <Card
           title="Perdidos"
-          info={loading ? "…" : stats.perdidos}
+          info={loading ? "…" : filteredStats.perdidos}
           hint="Sem notícia há 48h"
           icon={RefreshCw}
           titleClassName="text-amber-600 dark:text-amber-400"
@@ -164,7 +201,12 @@ export function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 p-4 pt-0 lg:grid-cols-2">
         <Panel title="Posição dos sensores">
-          <SensorMap sensors={sensors} />
+          <div className="h-105 w-full">
+            <SensorMap
+              sensors={filteredSensors}
+              selectedSensorId={selectedSensorId}
+            />
+          </div>
         </Panel>
 
         <div className="flex flex-col gap-4">
@@ -172,14 +214,14 @@ export function DashboardPage() {
             title="Distribuição dos sensores"
             description="Estado da última leitura de cada sensor."
           >
-            <StatusDonut sensors={sensors} />
+            <StatusDonut sensors={filteredSensors} />
           </Panel>
 
           <Panel
             title="Próxima ação"
             description="Altura estimada a partir de há quanto tempo o nó detecta vegetação."
           >
-            <NextAction sensors={sensors} />
+            <NextAction sensors={filteredSensors} />
           </Panel>
         </div>
       </div>
@@ -189,7 +231,11 @@ export function DashboardPage() {
           title="Trechos por prioridade"
           description="Sensores que estão detectando vegetação, do mais urgente ao menos."
         >
-          <PrioritySensors sensors={sensors} />
+          <PrioritySensors
+            sensors={filteredSensors}
+            selectedSensorId={selectedSensorId}
+            onSelect={setSelectedSensorId}
+          />
         </Panel>
       </div>
 

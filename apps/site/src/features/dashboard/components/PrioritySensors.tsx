@@ -1,8 +1,17 @@
 import { getPrioritySensors } from "@/utils/mowingEstimate";
 import type { SensorSummary } from "@/types/sensor";
 
-/** Trechos detectando vegetação, ordenados por urgência. */
-export function PrioritySensors({ sensors }: { sensors: SensorSummary[] }) {
+interface PrioritySensorsProps {
+  sensors: SensorSummary[];
+  selectedSensorId?: string | null;
+  onSelect?: (id: string) => void;
+}
+
+export function PrioritySensors({
+  sensors,
+  selectedSensorId,
+  onSelect,
+}: PrioritySensorsProps) {
   const priority = getPrioritySensors(sensors);
 
   if (priority.length === 0) {
@@ -17,13 +26,23 @@ export function PrioritySensors({ sensors }: { sensors: SensorSummary[] }) {
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {priority.map((sensor) => {
         const { estimate } = sensor;
+        const isSelected = sensor.id === selectedSensorId;
+
         return (
-          <div
+          <button
             key={sensor.id}
-            className="flex items-center justify-between gap-4 rounded-lg bg-gray-100 p-4 dark:bg-gray-600"
+            type="button"
+            onClick={() => onSelect?.(sensor.id)}
+            className={`flex cursor-pointer items-center justify-between gap-4 rounded-lg p-4 text-left transition-colors ${
+              isSelected
+                ? "bg-purple-100 ring-2 ring-purple-500 dark:bg-gray-500 dark:ring-purple-400"
+                : "bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500"
+            }`}
           >
             <div>
-              <p className="font-bold text-gray-800 dark:text-white">{sensor.id}</p>
+              <p className="font-bold text-gray-800 dark:text-white">
+                {sensor.id}
+              </p>
               {estimate.estimatedHeight !== null && (
                 <p className="text-sm text-gray-500 dark:text-gray-300">
                   Altura estimada: {estimate.estimatedHeight.toFixed(1)} cm
@@ -45,7 +64,7 @@ export function PrioritySensors({ sensors }: { sensors: SensorSummary[] }) {
                   : `${estimate.daysUntilLimit?.toFixed(1)} dias para o limite`}
               </p>
             </div>
-          </div>
+          </button>
         );
       })}
     </div>

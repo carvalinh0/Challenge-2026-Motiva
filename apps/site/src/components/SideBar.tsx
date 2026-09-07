@@ -31,7 +31,12 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { name: "Dashboard", path: ROUTES.dashboard, icon: LayoutDashboard, end: true },
+  {
+    name: "Dashboard",
+    path: ROUTES.dashboard,
+    icon: LayoutDashboard,
+    end: true,
+  },
   { name: "Sensores", path: ROUTES.sensors, icon: RadioTower },
   { name: "Gráficos", path: ROUTES.charts, icon: ChartNoAxesCombined },
   { name: "Roteiro", path: ROUTES.route, icon: Route },
@@ -47,7 +52,7 @@ export function SideBar({
 
   return (
     <div
-      className={`fixed z-9999 flex h-screen w-64 flex-col bg-white shadow duration-200 lg:static lg:translate-x-0 dark:bg-gray-900 ${
+      className={`fixed z-9999 flex h-screen w-64 flex-col bg-white shadow duration-200 lg:fixed lg:translate-x-0 dark:bg-gray-900 ${
         sidebarOpen ? "translate-x-0" : "-translate-x-64"
       }`}
     >

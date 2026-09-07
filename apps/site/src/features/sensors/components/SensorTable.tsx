@@ -1,6 +1,17 @@
-import { Activity, Crosshair, Pencil, RotateCcw, Ruler, Trash2 } from "lucide-react";
+import {
+  Activity,
+  Crosshair,
+  Pencil,
+  RotateCcw,
+  Ruler,
+  Trash2,
+} from "lucide-react";
 import { formatTimestamp } from "@/utils/format";
-import { NIVEL_BADGE_CLASS, getNivel, nivelFromValue } from "@/utils/sensorStatus";
+import {
+  NIVEL_BADGE_CLASS,
+  getNivel,
+  nivelFromValue,
+} from "@/utils/sensorStatus";
 import type { SensorSummary } from "@/types/sensor";
 import type { SensorAction } from "../types";
 import { SensorActionButton } from "./SensorActionButton";
@@ -49,7 +60,10 @@ export function SensorTable({
             const busy = running[sensor.id];
 
             return (
-              <tr key={sensor.id} className="border-b border-gray-100 dark:border-gray-600">
+              <tr
+                key={sensor.id}
+                className="border-b border-gray-100 dark:border-gray-600"
+              >
                 <td className="p-2 font-medium">{sensor.id}</td>
                 <td className="p-2">
                   <span
@@ -64,7 +78,9 @@ export function SensorTable({
                 </td>
                 <td className="p-2">
                   {/* Estado com rótulo, nunca só cor. */}
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${NIVEL_BADGE_CLASS[nivel]}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${NIVEL_BADGE_CLASS[nivel]}`}
+                  >
                     {nivel}
                   </span>
                 </td>
@@ -81,14 +97,28 @@ export function SensorTable({
                       onClick={() => onMeasure(sensor)}
                     />
                     <SensorActionButton
+<<<<<<< HEAD
                       title="Healthcheck (mesh)"
+=======
+                      title={
+                        withoutNode
+                          ? "Precisa de node_id"
+                          : "Healthcheck (mesh)"
+                      }
+>>>>>>> 2dd1a17 (começando filtro e ajustando interface responsiva)
                       icon={Activity}
                       loading={busy === "health"}
                       disabled={Boolean(busy)}
                       onClick={() => onHealthcheck(sensor)}
                     />
                     <SensorActionButton
+<<<<<<< HEAD
                       title="Calibrar (mesh)"
+=======
+                      title={
+                        withoutNode ? "Precisa de node_id" : "Calibrar (mesh)"
+                      }
+>>>>>>> 2dd1a17 (começando filtro e ajustando interface responsiva)
                       icon={Crosshair}
                       loading={busy === "calibrate"}
                       disabled={Boolean(busy)}
