@@ -51,6 +51,7 @@ volatile uint32_t s_txLastQueuedSeq = 0;    // última seq entregue à fila
 volatile uint32_t s_txLastSentSeq = 0;      // última seq que realmente saiu pelo rádio
 
 volatile bool s_packetReceivedFlag = false;
+volatile bool s_nodeBusy = false;
 
 // Comparação à prova de wraparound do contador de 32 bits: olha a DIFERENÇA
 // com sinal, não os valores absolutos.
@@ -146,7 +147,25 @@ void handleIncomingPacket() {
   bool isForMe = (packet.destNode == NODE_ID) || (packet.destNode == MESH_BROADCAST_ADDR);
   bool shouldRelay = (packet.destNode != NODE_ID); // broadcast também continua se espalhando
 
-  if (isForMe && s_rxQueue) {
+  bool answeredHere = false;
+  if (isForMe && !IS_PROXY && s_nodeBusy) {
+    MeshCommand cmd = (MeshCommand)packet.command;
+    if (cmd == CMD_HEALTHCHECK || cmd == CMD_MEASURE || cmd == CMD_CALIBRATE) {
+      uint8_t value = (cmd == CMD_HEALTHCHECK) ? 1 : MESH_RESULT_BUSY;
+      MeshPacket reply = meshBuildPacket(MESH_PROXY_NODE_ID, meshResultCommandFor(cmd), &value, 1);
+      answeredHere = enqueueForTx(reply, nullptr);
+
+      if (!answeredHere) {
+        Serial.println("[LORA] AVISO: fila de TX cheia, resposta imediata NAO enviada.");
+      } else if (cmd == CMD_HEALTHCHECK) {
+        Serial.println("[LORA] Healthcheck respondido pela task (core principal ocupado).");
+      } else {
+        Serial.println("[LORA] Pedido recusado com OCUPADO: ja ha uma varredura em andamento.");
+      }
+    }
+  }
+
+  if (isForMe && !answeredHere && s_rxQueue) {
     Serial.println("[LORA] Pacote e para este no, enfileirado pro core principal.");
     xQueueSend(s_rxQueue, &packet, 0); // não bloqueia; fila tem folga (ver loraTaskInit)
   }
@@ -299,6 +318,10 @@ bool loraTaskWaitForTxDrain(uint32_t timeoutMs) {
     delay(5);
   }
   return false;
+}
+
+void loraTaskSetNodeBusy(bool busy) {
+  s_nodeBusy = busy;
 }
 
 bool loraTaskPollIncoming(MeshPacket& outPacket) {

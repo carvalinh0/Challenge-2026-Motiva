@@ -38,6 +38,15 @@ uint32_t meshGenerateMessageId() {
   return esp_random();
 }
 
+MeshCommand meshResultCommandFor(MeshCommand requestCommand) {
+  switch (requestCommand) {
+    case CMD_CALIBRATE:   return CMD_RESULT_CALIBRATE;
+    case CMD_MEASURE:     return CMD_RESULT_MEASURE;
+    case CMD_HEALTHCHECK: return CMD_RESULT_HEALTHCHECK;
+    default:              return CMD_RESULT_HEALTHCHECK; // não deveria ocorrer
+  }
+}
+
 MeshPacket meshBuildPacket(uint16_t destNode, MeshCommand command,
                             const uint8_t* payload, uint8_t payloadLen) {
   MeshPacket packet = {};

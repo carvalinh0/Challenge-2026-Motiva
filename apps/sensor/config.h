@@ -49,6 +49,19 @@
 // Leituras iguais ou acima disso são tratadas como "fora de alcance".
 #define MAX_SENSOR_RANGE_MM 1350
 
+// Abaixo disso o VL53L1X não mede de verdade (limite físico, ~40mm).
+//
+// Uma janela inteira abaixo desse valor é a assinatura de NADA DENTRO DO
+// ALCANCE: sem alvo, o retorno mais forte que sobra é o reflexo do vidro da
+// própria cápsula, a poucos milímetros — e o chip o reporta com toda a
+// confiança (status válido, sigma baixo, sinal constante). Como o sensor é
+// montado na altura-limite da grama, "nada dentro do alcance" significa
+// "nada acima da altura de instalação", ou seja: grama baixa.
+//
+// NÃO serve para descartar leitura individual: a parede da cápsula fica
+// justamente nessa faixa, e a calibração PRECISA enxergá-la.
+#define MIN_SENSOR_RANGE_MM 40
+
 // Limite mínimo de sinal confiável (MCPS)
 #define MIN_SIGNAL_RATE 0.25f
 

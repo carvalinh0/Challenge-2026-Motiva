@@ -42,6 +42,49 @@ bool statusHasTarget(uint8_t status) {
          status == VL53L1X::RangeValidMinRangeClipped;
 }
 
+// "Tem algo mais perto do que eu consigo medir" (~40mm). A ST descreve os DOIS
+// status abaixo com a MESMA frase — "Target is below minimum detection
+// threshold" — e rotula um como válido (3) e o outro como falha (13). A
+// diferença é de confiança na DISTÂNCIA reportada, não na existência do
+// obstáculo, e para calibrar a distância não interessa: dentro da cápsula, a
+// única coisa a 40mm é a parede.
+//
+// Isso importa porque é uma afirmação GEOMÉTRICA do chip, não fotométrica: não
+// depende de comparar sinal com luz de fundo. É o único critério de parede que
+// continua de pé sob sol, e foi a falta dele que fez a calibração só funcionar
+// em baixa luminosidade.
+bool statusBelowMinRange(uint8_t status) {
+  return status == VL53L1X::RangeValidMinRangeClipped ||
+         status == VL53L1X::MinRangeFail;
+}
+
+// Por que esta amostra foi descartada. A ordem importa: é a PRIMEIRA causa na
+// cadeia, que é o que interessa em campo — "o sol está matando o sinal" e "o
+// alvo está fora de alcance" dão o mesmo resultado final e causas bem
+// diferentes aqui.
+enum class RejectReason : uint8_t { Nenhum, Timeout, Status, Sinal, Sigma, ForaDeAlcance };
+
+const char* rejectReasonName(RejectReason reason) {
+  switch (reason) {
+    case RejectReason::Nenhum:        return "ok";
+    case RejectReason::Timeout:       return "timeout";
+    case RejectReason::Status:        return "status";
+    case RejectReason::Sinal:         return "sinal";
+    case RejectReason::Sigma:         return "sigma";
+    case RejectReason::ForaDeAlcance: return "fora_alcance";
+  }
+  return "?";
+}
+
+RejectReason rejectReasonFor(const SensorSample& s) {
+  if (s.timedOut)                           return RejectReason::Timeout;
+  if (s.status != VL53L1X::RangeValid)      return RejectReason::Status;
+  if (s.signalRate < MIN_SIGNAL_RATE)       return RejectReason::Sinal;
+  if (s.sigma_mm > MAX_SIGMA_MM)            return RejectReason::Sigma;
+  if (s.distance_mm >= MAX_SENSOR_RANGE_MM) return RejectReason::ForaDeAlcance;
+  return RejectReason::Nenhum;
+}
+
 SensorSample readValidatedDistance() {
   SensorSample sample;
   sample.distance_mm = g_sensor->readSingle();
@@ -56,6 +99,7 @@ SensorSample readValidatedDistance() {
     sample.ambientRate = 0.0f;
     sample.sigma_mm = 0.0f;
     sample.status = VL53L1X::None;
+    sample.valid = false;
     return sample;
   }
 
@@ -68,10 +112,9 @@ SensorSample readValidatedDistance() {
   sample.sigma_mm = g_sensor->readReg16Bit(VL53L1X::RESULT__SIGMA_SD0) / 4.0f;
 
   sample.hasTarget = statusHasTarget(sample.status);
-  sample.valid = (sample.status == VL53L1X::RangeValid)
-              && (sample.signalRate >= MIN_SIGNAL_RATE)
-              && (sample.sigma_mm <= MAX_SIGMA_MM)
-              && (sample.distance_mm < MAX_SENSOR_RANGE_MM);
+  // rejectReasonFor() é a única definição de "válida" — antes a checagem
+  // ficava duplicada aqui e no diagnóstico, e as duas podiam divergir.
+  sample.valid = (rejectReasonFor(sample) == RejectReason::Nenhum);
   return sample;
 }
 
@@ -87,6 +130,14 @@ SensorSample readValidatedDistance() {
 //     verdade (que eleva o sinal MUITO mais que o ambiente).
 bool looksLikeRealWall(const SensorSample& sample) {
   if (sample.timedOut) return false;
+
+  // Caminho independente de luz ambiente. Vem PRIMEIRO e é suficiente sozinho:
+  // sob sol, a razão sinal/ambiente abaixo desaba (vegetação reflete ~50% em
+  // 940nm, então a cena inteira vira uma fonte de IR) e vetava a parede mesmo
+  // com ela a 40mm do sensor. Blindar o sensor não resolve — quem está
+  // iluminado é o alvo, não o receptor.
+  if (statusBelowMinRange(sample.status)) return true;
+
   if (!sample.hasTarget) return false;
   if (sample.distance_mm > CALIBRATION_WALL_MAX_DISTANCE_MM) return false;
   if (sample.signalRate < CALIBRATION_WALL_SIGNAL_THRESHOLD_MCPS) return false;
@@ -150,6 +201,16 @@ struct EdgeResult {
 EdgeResult findEdge(AccelStepper& motor, int direction, long maxSteps) {
   EdgeResult result = { false, 0, false };
 
+  // Agregados usados só quando a busca FALHA. Passo a passo o log já sai
+  // completo, mas são ~1000 linhas por varredura: no campo, sob sol, ninguém
+  // lê isso num celular. Estes números dizem numa linha o que o sensor
+  // enxergou no percurso inteiro.
+  float bestSignal = 0.0f;
+  float bestRatio = 0.0f;
+  uint16_t closest = 0xFFFF;
+  int statusCounts[14] = { 0 };
+  int statusOther = 0;
+
   SensorSample previous = readValidatedDistance();
   long stepsMoved = 0;
   int wallStreak = 0;
@@ -173,6 +234,21 @@ EdgeResult findEdge(AccelStepper& motor, int direction, long maxSteps) {
 
     SensorSample current = readValidatedDistance();
     bool wallLike = looksLikeRealWall(current);
+
+    if (!current.timedOut) {
+      if (current.status < 14) statusCounts[current.status]++;
+      else statusOther++;
+
+      if (current.signalRate > bestSignal) bestSignal = current.signalRate;
+
+      float ratio = current.signalRate / max(current.ambientRate, 0.01f);
+      if (ratio > bestRatio) bestRatio = ratio;
+
+      if ((statusHasTarget(current.status) || statusBelowMinRange(current.status)) &&
+          current.distance_mm < closest) {
+        closest = current.distance_mm;
+      }
+    }
 
     if (wallLike) {
       wallStreak++;
@@ -238,6 +314,26 @@ EdgeResult findEdge(AccelStepper& motor, int direction, long maxSteps) {
 #if DEBUG_CALIBRATION
   Serial.print("[CAL] FALHOU: esgotou maxSteps sem achar borda. armado=");
   Serial.println(result.everArmed ? 1 : 0);
+
+  Serial.print("[CAL] no caminho: melhor_sinal=");
+  Serial.print(bestSignal, 2);
+  Serial.print(" melhor_razao=");
+  Serial.print(bestRatio, 2);
+  Serial.print(" mais_perto_mm=");
+  if (closest == 0xFFFF) Serial.print("nenhum"); else Serial.print(closest);
+  Serial.print(" | status:");
+  for (int st = 0; st < 14; st++) {
+    if (statusCounts[st] == 0) continue;
+    Serial.print(" ");
+    Serial.print(VL53L1X::rangeStatusToString((VL53L1X::RangeStatus)st));
+    Serial.print("=");
+    Serial.print(statusCounts[st]);
+  }
+  if (statusOther > 0) {
+    Serial.print(" outros=");
+    Serial.print(statusOther);
+  }
+  Serial.println();
   if (!result.everArmed) {
     Serial.println("[CAL] Nunca viu campo aberto: o sensor enxergou 'parede' o curso inteiro.");
     Serial.println("[CAL] Suspeita de reflexo interno do case (crosstalk) — rode apps/sensor-tools/case_scan e suba CALIBRATION_WALL_SIGNAL_THRESHOLD_MCPS.");
@@ -263,6 +359,11 @@ void parkAtRest(AccelStepper& motor) {
   motor.moveTo(rest);
   motor.runToPosition();
 
+  // Nada mais move o motor depois daqui (calibração e medição terminam neste
+  // ponto, e o deep sleep não mexe nele), então esta é a posição com que o nó
+  // vai dormir — é ela que o próximo boot precisa restaurar.
+  rtcSetMotorPosition(motor.currentPosition());
+
   Serial.print("[MOTOR] Em repouso no meio da janela (passo ");
   Serial.print(rest);
   Serial.println(").");
@@ -279,7 +380,21 @@ void grassSensorInitMotor(AccelStepper& motor) {
 
   motor.setMaxSpeed(1000.0); // na prática mal sai da rampa: movimentos são de poucos passos
   motor.setAcceleration(200.0);
-  motor.setCurrentPosition(0);
+
+  // Restaura o referencial da calibração em vez de zerar cegamente. Zerar aqui
+  // significava "onde quer que o motor esteja agora é o passo 0" — e como o nó
+  // acorda com o motor no repouso (meio da janela), a janela guardada na RTC
+  // passava a ser interpretada a partir dali. A varredura então começava meia
+  // janela à direita do que devia, atravessava a parede no meio do caminho e
+  // media o interior do case; o repouso seguinte caía sobre a parede direita, e
+  // o erro se acumulava meia janela por ciclo.
+  if (rtcHasMotorPosition()) {
+    motor.setCurrentPosition(rtcGetMotorPosition());
+    Serial.print("[MOTOR] Posicao restaurada da RTC: passo ");
+    Serial.println(rtcGetMotorPosition());
+  } else {
+    motor.setCurrentPosition(0);
+  }
 
   digitalWrite(STEP_POWER_PIN, HIGH);
 }
@@ -288,6 +403,7 @@ bool grassSensorCalibrate(AccelStepper& motor, VL53L1X& sensor) {
   g_sensor = &sensor;
 
   Serial.println("[CALIBRACAO] Iniciando...");
+  rtcClearMotorPosition();
   motor.setCurrentPosition(0); // referência: posição física no momento em que ligou
 
   // Onde o motor estava quando esta calibração começou, expresso no sistema de
@@ -358,6 +474,15 @@ bool grassSensorCalibrate(AccelStepper& motor, VL53L1X& sensor) {
   return true;
 }
 
+void grassSensorPowerDownMotor(AccelStepper& motor) {
+  motor.disableOutputs();
+  digitalWrite(STEP_POWER_PIN, LOW);
+
+  Serial.print("[MOTOR] Desligado para dormir (posicao ");
+  Serial.print(motor.currentPosition());
+  Serial.println(" salva na RTC).");
+}
+
 GrassStatus grassSensorMeasure(AccelStepper& motor, VL53L1X& sensor) {
   g_sensor = &sensor;
 
@@ -388,6 +513,10 @@ GrassStatus grassSensorMeasure(AccelStepper& motor, VL53L1X& sensor) {
   motor.runToPosition();
 
   int validCount = 0;
+  int rejectCounts[6] = { 0, 0, 0, 0, 0, 0 };
+  float ambientSum = 0.0f;
+  uint16_t minValid = 0xFFFF;
+  uint16_t maxValid = 0;
 
   for (int i = 0; i < expectedSamples; i++) {
     delay(MEASUREMENT_SETTLE_DELAY_MS); // mesmo settle da calibração: ler logo após parar o motor pega vibração
@@ -402,9 +531,14 @@ GrassStatus grassSensorMeasure(AccelStepper& motor, VL53L1X& sensor) {
     Serial.println();
 #endif
 
+    rejectCounts[(int)rejectReasonFor(s)]++;
+    ambientSum += s.ambientRate;
+
     if (s.valid) {
       g_sampleBuffer[validCount] = s.distance_mm;
       validCount++;
+      if (s.distance_mm < minValid) minValid = s.distance_mm;
+      if (s.distance_mm > maxValid) maxValid = s.distance_mm;
     }
 
     motor.move(MEASUREMENT_STEP_INCREMENT);
@@ -423,6 +557,26 @@ GrassStatus grassSensorMeasure(AccelStepper& motor, VL53L1X& sensor) {
   Serial.print(validRatio * 100.0f, 1);
   Serial.println("%).");
 
+  Serial.print("[MEDICAO] descartes:");
+  for (int r = (int)RejectReason::Timeout; r <= (int)RejectReason::ForaDeAlcance; r++) {
+    if (rejectCounts[r] == 0) continue;
+    Serial.print(" ");
+    Serial.print(rejectReasonName((RejectReason)r));
+    Serial.print("=");
+    Serial.print(rejectCounts[r]);
+  }
+
+  Serial.print(" | ambiente_medio=");
+  Serial.print(ambientSum / expectedSamples, 3);
+  if (validCount > 0) {
+    Serial.print(" | validas_mm=[");
+    Serial.print(minValid);
+    Serial.print("..");
+    Serial.print(maxValid);
+    Serial.print("]");
+  }
+  Serial.println();
+
   // Variância de uma amostra só é sempre 0 — não dá pra classificar nada com isso.
   if (validCount < 2 || validRatio < MIN_VALID_SAMPLE_RATIO) {
     return GrassStatus::SEM_LEITURA_CONFIAVEL;
@@ -438,6 +592,16 @@ GrassStatus grassSensorMeasure(AccelStepper& motor, VL53L1X& sensor) {
     variance += diff * diff;
   }
   variance /= validCount;
+
+  if (mean < MIN_SENSOR_RANGE_MM) {
+    Serial.print("[MEDICAO] media_mm=");
+    Serial.print(mean, 1);
+    Serial.print(" abaixo do alcance minimo (");
+    Serial.print(MIN_SENSOR_RANGE_MM);
+    Serial.println("mm): nenhum alvo dentro do alcance.");
+    Serial.println("[MEDICAO] Veredito: ABAIXO_DO_LIMITE (grama abaixo da altura do sensor).");
+    return GrassStatus::ABAIXO_DO_LIMITE;
+  }
 
   Serial.print("[MEDICAO] media_mm=");
   Serial.print(mean, 1);

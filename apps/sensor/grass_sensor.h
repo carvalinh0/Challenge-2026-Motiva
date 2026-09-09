@@ -32,3 +32,14 @@ bool grassSensorCalibrate(AccelStepper& motor, VL53L1X& sensor);
 // Executa uma varredura completa da janela já calibrada (lida da RTC) e
 // retorna o status de altura da grama.
 GrassStatus grassSensorMeasure(AccelStepper& motor, VL53L1X& sensor);
+
+// Corta a alimentação do motor. Chamar imediatamente antes do deep sleep.
+//
+// As bobinas de um motor de passo consomem corrente PARADAS — é assim que ele
+// segura posição. Num nó que dorme 30 min por ciclo, deixar isso ligado
+// dominaria o consumo inteiro. Aqui não há o que segurar: o 28BYJ-48 é
+// engrenado (1:64) e não retrocede sozinho sem alimentação.
+//
+// Depende de a posição estar persistida na RTC (ver rtcSetMotorPosition): sem
+// isso, cortar a energia seria perder o referencial da janela calibrada.
+void grassSensorPowerDownMotor(AccelStepper& motor);

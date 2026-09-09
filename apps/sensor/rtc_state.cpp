@@ -7,6 +7,8 @@
 RTC_DATA_ATTR static bool s_calibrated = false;
 RTC_DATA_ATTR static long s_windowStart = 0;
 RTC_DATA_ATTR static long s_windowEnd = 0;
+RTC_DATA_ATTR static long s_motorPosition = 0;
+RTC_DATA_ATTR static bool s_motorPositionValid = false;
 
 RTC_DATA_ATTR static uint32_t s_dedupCache[MESH_DEDUP_CACHE_SIZE];
 RTC_DATA_ATTR static int s_dedupIndex = 0;
@@ -27,23 +29,49 @@ void rtcSetCalibratedWindow(long windowStart, long windowEnd) {
 
 void rtcInvalidateCalibration() {
   s_calibrated = false;
+  s_motorPositionValid = false; // o referencial morre junto com a janela
+}
+
+// -----------------------------------------------------------------------
+// Posição do motor
+// -----------------------------------------------------------------------
+bool rtcHasMotorPosition() { return s_motorPositionValid; }
+long rtcGetMotorPosition() { return s_motorPosition; }
+
+void rtcSetMotorPosition(long position) {
+  s_motorPosition = position;
+  s_motorPositionValid = true;
+}
+
+void rtcClearMotorPosition() {
+  s_motorPositionValid = false;
 }
 
 // -----------------------------------------------------------------------
 // Cache de deduplicação da mesh
 // -----------------------------------------------------------------------
+portMUX_TYPE s_dedupMux = portMUX_INITIALIZER_UNLOCKED;
+
 bool rtcMeshWasSeen(uint32_t messageId) {
-  if (!s_dedupInitialized) return false; // buffer ainda não tem nada de útil
-  for (int i = 0; i < MESH_DEDUP_CACHE_SIZE; i++) {
-    if (s_dedupCache[i] == messageId) return true;
+  bool seen = false;
+
+  portENTER_CRITICAL(&s_dedupMux);
+  if (s_dedupInitialized) {
+    for (int i = 0; i < MESH_DEDUP_CACHE_SIZE; i++) {
+      if (s_dedupCache[i] == messageId) { seen = true; break; }
+    }
   }
-  return false;
+  portEXIT_CRITICAL(&s_dedupMux);
+
+  return seen;
 }
 
 void rtcMeshMarkSeen(uint32_t messageId) {
+  portENTER_CRITICAL(&s_dedupMux);
   s_dedupCache[s_dedupIndex] = messageId;
   s_dedupIndex = (s_dedupIndex + 1) % MESH_DEDUP_CACHE_SIZE;
   s_dedupInitialized = true;
+  portEXIT_CRITICAL(&s_dedupMux);
 }
 
 // -----------------------------------------------------------------------
