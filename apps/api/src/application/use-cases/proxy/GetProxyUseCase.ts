@@ -17,7 +17,7 @@ export class GetProxyUseCase {
         private readonly activeWindowMs: number,
     ) {}
 
-    async execute(id: string): Promise<ProxyDetailDTO> {
+    async execute(id: number): Promise<ProxyDetailDTO> {
         const proxy = await this.sensors.findById(id);
         if (!proxy || !isProxy(proxy)) {
             throw new NotFoundError("Proxy não encontrado");

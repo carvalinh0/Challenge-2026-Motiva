@@ -59,9 +59,9 @@ export class ListSensorsUseCase {
     }
 
     /** Histórico recente de todos os sensores, agrupado por sensor. */
-    private async recentHistory(): Promise<Map<string, Measurement[]>> {
+    private async recentHistory(): Promise<Map<number, Measurement[]>> {
         const since = new Date(Date.now() - STREAK_WINDOW_MS);
-        const grouped = new Map<string, Measurement[]>();
+        const grouped = new Map<number, Measurement[]>();
 
         for (const measurement of await this.measurements.findAllSince(since)) {
             const list = grouped.get(measurement.sensorId);

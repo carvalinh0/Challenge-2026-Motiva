@@ -11,18 +11,9 @@ import type { Sensor } from "../../../domain/entities/Sensor";
 export class UpdateSensorUseCase {
     constructor(private readonly sensors: SensorRepository) {}
 
-    async execute(id: string, data: UpdateSensorDTO): Promise<Sensor> {
+    async execute(id: number, data: UpdateSensorDTO): Promise<Sensor> {
         const existing = await this.sensors.findById(id);
         if (!existing) throw new NotFoundError("Sensor não encontrado");
-
-        if (data.node_id != null && data.node_id !== existing.nodeId) {
-            const taken = await this.sensors.findByNodeId(data.node_id);
-            if (taken && taken.id !== id) {
-                throw new ConflictError(
-                    `node_id ${data.node_id} já está em uso pelo sensor "${taken.id}"`,
-                );
-            }
-        }
 
         // Mesmo motivo do cadastro: apontar para um proxy inexistente vira
         // violação de chave estrangeira no banco, e o usuário só veria um 500.
@@ -48,7 +39,6 @@ export class UpdateSensorUseCase {
             longitude: data.longitude,
             type: data.type,
             proxyId: data.proxy_id,
-            nodeId: data.node_id,
         });
         if (!updated) throw new NotFoundError("Sensor não encontrado");
         return updated;

@@ -26,6 +26,7 @@ import { IngestMeshResultUseCase } from "./application/use-cases/measurement/Ing
 import { RequestNodeMeasurementUseCase } from "./application/use-cases/mesh/RequestNodeMeasurementUseCase";
 import { RequestNodeHealthcheckUseCase } from "./application/use-cases/mesh/RequestNodeHealthcheckUseCase";
 import { RequestNodeCalibrationUseCase } from "./application/use-cases/mesh/RequestNodeCalibrationUseCase";
+import { MeshCommandRegistry } from "./application/services/MeshCommandRegistry";
 import { BroadcastHealthcheckUseCase } from "./application/use-cases/mesh/BroadcastHealthcheckUseCase";
 import { BroadcastMeasurementUseCase } from "./application/use-cases/mesh/BroadcastMeasurementUseCase";
 import { LoginUseCase } from "./application/use-cases/auth/LoginUseCase";
@@ -91,6 +92,7 @@ if (!DEVICE_TOKEN) {
 const sensorRepository = new PrismaSensorRepository();
 const measurementRepository = new PrismaMeasurementRepository();
 const mesh = new MqttProvider();
+const meshInFlight = new MeshCommandRegistry();
 // Segredo aleatório quando não há um configurado: garante que nenhum token
 // emitido por engano seja válido em outro boot, e que tokens antigos não
 // passem. Na prática as rotas de auth já barram antes disso (503).
@@ -134,9 +136,9 @@ const controllers = {
         new ResetProxyUseCase(sensorRepository, measurementRepository),
     ),
     mesh: new MeshController(
-        new RequestNodeMeasurementUseCase(sensorRepository, mesh),
-        new RequestNodeHealthcheckUseCase(sensorRepository, mesh),
-        new RequestNodeCalibrationUseCase(sensorRepository, mesh),
+        new RequestNodeMeasurementUseCase(sensorRepository, mesh, meshInFlight),
+        new RequestNodeHealthcheckUseCase(sensorRepository, mesh, meshInFlight),
+        new RequestNodeCalibrationUseCase(sensorRepository, mesh, meshInFlight),
         new BroadcastHealthcheckUseCase(sensorRepository, mesh),
         new BroadcastMeasurementUseCase(sensorRepository, mesh),
         mesh,

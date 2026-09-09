@@ -14,7 +14,7 @@ export class AddBulkMeasurementsUseCase {
     // Sucesso parcial é esperado aqui: grava tudo que dá e devolve a lista dos
     // ids desconhecidos, para o device cadastrá-los e reenviar só esses.
     async execute(data: BulkMeasurementsDTO): Promise<BulkMeasurementsResultDTO> {
-        const failed: string[] = [];
+        const failed: number[] = [];
 
         for (const item of data.data) {
             const sensor = await this.sensors.findById(item.id);

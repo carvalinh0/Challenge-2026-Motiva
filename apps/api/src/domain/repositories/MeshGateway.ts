@@ -4,6 +4,7 @@
 // (MqttProvider) vive em infrastructure e pode ser trocada/mockada.
 
 export type MeshAction = "CALIBRATE" | "MEASURE" | "HEALTHCHECK";
+export const MESH_RESULT_BUSY = 3;
 
 export interface MeshResult {
     sourceNode: number;

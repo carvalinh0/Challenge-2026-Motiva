@@ -174,7 +174,7 @@ Todo corpo e query string passa por Zod. Entrada malformada devolve **400** com 
 }
 ```
 
-Regras que valem para todas as rotas: `latitude` entre -90 e 90, `longitude` entre -180 e 180, `node_id` inteiro de 0 a 65535, `value` de medição só aceita `0`, `1` ou `2`.
+Regras que valem para todas as rotas: `latitude` entre -90 e 90, `longitude` entre -180 e 180, `id` de nó inteiro de 0 a 65535, `value` de medição só aceita `0`, `1` ou `2`.
 
 ---
 
@@ -199,7 +199,16 @@ Todos os sensores guardam a informação de quem é o proxy responsável por ele
 
 `value` nas medições é sempre **number**: `0` = abaixo do limite de altura, `1` = acima do limite, `2` = sem leitura confiável (ver `sensor_grama/command_dispatcher.h` no firmware — é o mesmo código que sai do sensor via LoRa/MQTT, a API não reinterpreta).
 
-`node_id` é o NODE_ID numérico do sensor na mesh LoRa (ver `sensor_grama/config.h`). É opcional nos bodies de criação/atualização, mas **obrigatório** para qualquer rota que aciona a mesh (seção "Mesh" mais abaixo) — sem ele a API não sabe pra qual nó mandar o comando nem de qual nó aceitar respostas.
+O **`id` de um nó É o NODE_ID dele na mesh LoRa** (o `#define NODE_ID` em `apps/sensor/config.h`): inteiro, de 0 a 65535.
+
+Antes existiam dois campos — `id` (texto, escolhido no cadastro) e `node_id` (número, vindo do rádio). Na prática todo mundo mantinha os dois iguais, mas nada obrigava: bastava um cadastro desatento para o nó existir na API com um número e no rádio com outro, e o sintoma disso (comandos que nunca chegam, medições que nunca aparecem) não aponta para a causa. Agora são a mesma coisa e não há como divergirem.
+
+Consequências práticas:
+
+- `node_id` **não existe mais** em nenhum body nem em nenhuma resposta.
+- O id **não é editável** por `PATCH`: é o endereço de rádio gravado na placa. Para mudar o endereço de um nó, regrave o firmware e cadastre o novo id.
+- O proxy só pode ter o id `0` (`MESH_PROXY_NODE_ID` no firmware).
+- Não existe mais "sensor sem node_id": todo sensor cadastrado é um nó endereçável pela mesh.
 
 ---
 
@@ -215,7 +224,6 @@ Request Body
     "latitude": number,
     "longitude": number,
     "proxy_id"?: string,
-    "node_id"?: number
 }
 ```
 
@@ -250,11 +258,10 @@ Resposta 200:
 {
     "status": "success",
     "data": {
-        "id": string,
+        "id": number,
         "latitude": number,
         "longitude": number,
         "type": "proxy" | "sensor",
-        "node_id": number | null,
         "lastMeasurements": [
             {
                 "timestamp": number,
@@ -287,7 +294,6 @@ Request Body
     "longitude"?: number,
     "type"?: "proxy" | "sensor",
     "proxy_id"?: string,
-    "node_id"?: number
 }
 ```
 
@@ -296,11 +302,10 @@ Resposta 200:
 {
     "status": "success",
     "data": {
-        "id": string,
+        "id": number,
         "latitude": number,
         "longitude": number,
         "type": "proxy" | "sensor",
-        "node_id": number | null
     }
 }
 ```
@@ -344,7 +349,7 @@ Resposta 404:
 ### GET /api/sensors/:id/measurement
 Aciona uma medição de verdade **via mesh** (API publica em MQTT `grama/comando` → proxy repassa por LoRa → sensor mede e responde em `grama/resultado`) e devolve o valor assim que a resposta chegar.
 
-Requer que o sensor tenha `node_id` configurado (ver POST/PATCH `/api/sensors/:id`) e o broker MQTT acessível — sem isso essa rota não tem como funcionar. A medição real varre a janela calibrada inteira e pode demorar até ~90s no pior caso antes de responder.
+Requer o broker MQTT acessível — sem isso essa rota não tem como funcionar. A medição real varre a janela calibrada inteira e pode demorar até ~90s no pior caso antes de responder.
 
 Resposta 200:
 ```ts
@@ -354,19 +359,19 @@ Resposta 200:
 }
 ```
 
+Resposta 409 — já há um comando em voo para este nó, ou o próprio nó recusou por estar varrendo (ver "Um comando por nó de cada vez"). Não é falha de comunicação: a mesh está saudável, é só aguardar ou tentar de novo em instantes.
+```json
+{
+    "status": "error",
+    "message": "já existe um MEASURE em andamento neste nó; aguarde o resultado ou tente de novo em instantes"
+}
+```
+
 Resposta 404:
 ```json
 {
     "status": "error",
     "message": "Sensor não encontrado"
-}
-```
-
-Resposta 422 (sensor sem `node_id`):
-```json
-{
-    "status": "error",
-    "message": "sensor sem node_id configurado, nao e possivel acionar via mesh"
 }
 ```
 
@@ -392,7 +397,7 @@ Request Body
 {
     "data": [
         {
-            "id": string,
+            "id": number,
             "value": number
         }
         ...
@@ -485,11 +490,10 @@ Resposta 200:
     "status": "success",
     "data": [
         {
-            "id": string,
+            "id": number,
             "latitude": number,
             "longitude": number,
             "type": "proxy" | "sensor",
-            "node_id": number | null,
             "last_seen": number | null,   // epoch ms; null = nunca reportou
             "active": boolean,            // last_seen dentro da janela
             "lastMeasurement": {
@@ -518,7 +522,6 @@ Request Body:
     "name"?: string,
     "latitude": number,
     "longitude": number,
-    "node_id"?: number <- NODE_ID do proxy na mesh; DEVE ser 0 (MESH_PROXY_NODE_ID no firmware) se for informado. Se omitido, assume 0.
 }
 ```
 
@@ -550,11 +553,10 @@ Resposta 200:
 {
     "status": "success",
     "data": {
-        "id": string,
+        "id": number,
         "latitude": number,
         "longitude": number,
         "type": "proxy",
-        "node_id": number | null,
         "lastMeasurements": [
             {
                 "timestamp": number,
@@ -564,11 +566,10 @@ Resposta 200:
         ],
         "sensors": [
             {
-                "id": string,
+                "id": number,
                 "latitude": number,
                 "longitude": number,
                 "type": "sensor",
-                "node_id": number | null,
                 "lastMeasurement": {
                     "timestamp": number,
                     "value": number
@@ -637,9 +638,51 @@ Essas rotas não fazem parte do fluxo "device envia HTTP" acima — elas acionam
 Precisam de:
 - **JWT** (o token estático de device não vale aqui).
 - `MQTT_URL` (ou `MQTT_HOST`/`MQTT_PORT`) configurado no `.env` — mesmo broker do proxy.
-- O sensor alvo ter `node_id` cadastrado (bate com `NODE_ID` do `config.h` do firmware).
+- O sensor alvo estar cadastrado (o id dele é o `NODE_ID` do `config.h` do firmware).
 
 **A API fica sempre conectada e escutando `grama/resultado`**, não só quando alguém chama uma dessas rotas — qualquer resultado que aparecer nesse tópico é persistido automaticamente (medição vai pro banco, `last_seen` do sensor é atualizado), inclusive medições que um sensor manda por conta própria no ciclo autônomo (acordou pelo timer, sem ninguém ter pedido nada pela API). Esse listener é o `IngestMeshResultUseCase`, assinado no gateway em `src/main.ts`.
+
+### Cadastro automático de nós
+
+Um nó que aparece na mesh sem estar na lista de sensores **é cadastrado sozinho**. O gatilho normal é o healthcheck que todo sensor manda ao INICIALIZAR (`sendEarlyHealthcheck` no firmware — só no boot, não a cada wake): basta energizar a placa com o `NODE_ID` certo pra ela aparecer em `GET /api/sensors`.
+
+O cadastro é deliberadamente incompleto:
+
+| campo | valor |
+|---|---|
+| `id` | o NODE_ID que veio no pacote |
+| `name` | `"Nó <id> (cadastro automático)"` |
+| `type` | `"proxy"` se o id for 0, senão `"sensor"` |
+| `latitude`/`longitude` | `null` |
+
+**Sem coordenadas de propósito** — a mesh não carrega essa informação e inventá-la seria pior que não ter. O nó entra na listagem e passa a acumular histórico na hora, mas só aparece no mapa e no roteiro de roçada depois que alguém informar onde ele está (`PATCH /api/sensors/:id`).
+
+Vale saber que a mesh não é autenticada: qualquer transmissor no alcance pode criar linhas na tabela de sensores. Isso não amplia o que já era possível (forjar medições de nós existentes já era), mas a lista de sensores deixou de ser só o que um humano cadastrou.
+
+### Um comando por nó de cada vez
+
+**A API serializa comandos de mesh por nó.** Enquanto um `MEASURE`/`HEALTHCHECK`/`CALIBRATE` está em voo para o nó N, um segundo pedido para N é recusado com **409 imediatamente, sem chegar ao rádio**. Quem pediu primeiro continua esperando e recebe o dado dele; quem chegou no meio recebe o aviso.
+
+Isso é feito na API, e não só no firmware, porque o proxy correlaciona respostas por nó + comando. **Dois pedidos do mesmo comando para o mesmo nó são indistinguíveis na volta** — sem a trava, qual dos dois receberia a leitura de verdade e qual receberia a recusa viraria sorteio, e os dois navegadores acabavam vendo a mesma mensagem.
+
+```json
+{
+    "status": "error",
+    "message": "já existe um MEASURE em andamento neste nó; aguarde o resultado ou tente de novo em instantes"
+}
+```
+
+A trava é liberada quando o resultado chega **ou quando o timeout estoura** — um nó que sumiu no meio de uma medição não fica bloqueado para sempre.
+
+> O registro vive na memória do processo. Com mais de uma instância da API contra o mesmo broker, cada uma enxerga só os próprios comandos e a serialização deixa de valer; aí ele precisa sair para algo compartilhado (Redis, ou uma tabela com lock).
+
+### Recusa do próprio nó (rede de segurança)
+
+Um sensor tem um motor só. Se um `MEASURE` ou `CALIBRATE` chegar ao nó enquanto ele já está varrendo — o que agora só acontece para comandos que **não** passaram por esta API (outra instância, ou um publish manual no broker) — o firmware **recusa na hora** com `MESH_RESULT_BUSY` (3) em vez de enfileirar. Enfileirar significaria responder muito depois do timeout de quem pediu, gastando uma segunda varredura de bateria para produzir um resultado que ninguém está mais esperando.
+
+Isso nunca vira medição no banco: 3 está fora da faixa 0/1/2 e o listener descarta explicitamente. Nas rotas síncronas vira 409, e no broadcast vira o campo `busy`.
+
+Healthcheck é exceção no firmware — esse é respondido mesmo durante uma varredura, pela própria task de LoRa. Durante esse intervalo, "vivo" prova que o rádio e a mesh estão de pé, não que o núcleo principal está.
 
 ---
 
@@ -650,7 +693,7 @@ Resposta 200:
 ```ts
 {
     "status": "success",
-    "data": { "id": string, "alive": boolean }
+    "data": { "id": number, "alive": boolean }
 }
 ```
 
@@ -663,14 +706,16 @@ Resposta 200:
 ```ts
 {
     "status": "success",
-    "data": { "id": string, "ok": boolean }
+    "data": { "id": number, "ok": boolean }
 }
 ```
+
+Resposta 409 — já há um comando em voo para este nó, ou o nó recusou por estar varrendo. Diferente de `ok: false`, que significa "tentou calibrar e não conseguiu": aqui nada chegou a ser tentado.
 
 ---
 
 ### POST /api/health
-Healthcheck em **broadcast** — pede pra mesh inteira responder de uma vez (sem `targetNode`, ver `sensor_grama/mqtt_client.cpp`), junta as respostas por alguns segundos e devolve o status de cada sensor cadastrado com `node_id`.
+Healthcheck em **broadcast** — pede pra mesh inteira responder de uma vez (sem `targetNode`, ver `sensor_grama/mqtt_client.cpp`), junta as respostas por alguns segundos e devolve o status de cada sensor cadastrado.
 
 Resposta 200:
 ```ts
@@ -678,7 +723,7 @@ Resposta 200:
     "status": "success",
     "data": {
         "status": [
-            { "id": string, "node_id": number, "alive": boolean }
+            { "id": number, "alive": boolean }
             ...
         ]
     }
@@ -704,7 +749,11 @@ Resposta 200:
     "status": "success",
     "data": {
         "measurements": [
-            { "id": string, "node_id": number, "value": number | null }
+            {
+                "id": number,
+                "value": number | null,
+                "busy": boolean
+            }
             ...
         ]
     }

@@ -1,18 +1,17 @@
 import { z } from "zod";
 import type { Sensor } from "../../domain/entities/Sensor";
+import { MAX_NODE_ID } from "../../domain/entities/Sensor";
 import type { Measurement } from "../../domain/entities/Measurement";
 
 const latitude = z.number().min(-90).max(90);
 const longitude = z.number().min(-180).max(180);
-// NODE_ID é uint16 no pacote da mesh (ver apps/sensor/mesh_protocol.h).
-const nodeId = z.number().int().min(0).max(65535);
+const nodeId = z.number().int().min(0).max(MAX_NODE_ID);
 
 export const createSensorSchema = z.object({
     name: z.string().min(1).nullish(),
     latitude: latitude.nullish(),
     longitude: longitude.nullish(),
-    proxy_id: z.string().min(1).nullish(),
-    node_id: nodeId.nullish(),
+    proxy_id: nodeId.nullish(),
 });
 export type CreateSensorDTO = z.infer<typeof createSensorSchema>;
 
@@ -21,8 +20,7 @@ export const updateSensorSchema = z.object({
     latitude: latitude.nullish(),
     longitude: longitude.nullish(),
     type: z.enum(["sensor", "proxy"]).optional(),
-    proxy_id: z.string().min(1).nullish(),
-    node_id: nodeId.nullish(),
+    proxy_id: nodeId.nullish(),
 });
 export type UpdateSensorDTO = z.infer<typeof updateSensorSchema>;
 
@@ -30,7 +28,6 @@ export const createProxySchema = z.object({
     name: z.string().min(1).nullish(),
     latitude: latitude.nullish(),
     longitude: longitude.nullish(),
-    node_id: nodeId.nullish(),
 });
 export type CreateProxyDTO = z.infer<typeof createProxySchema>;
 
@@ -40,7 +37,7 @@ export const getSensorQuerySchema = z.object({
 });
 
 export const listSensorsQuerySchema = z.object({
-    proxy: z.string().min(1).optional(),
+    proxy: z.coerce.number().int().min(0).max(MAX_NODE_ID).optional(),
     active: z
         .enum(["true", "false"])
         .optional()
@@ -63,11 +60,10 @@ export interface MeasurementOutputDTO {
 }
 
 export interface SensorSummaryDTO {
-    id: string;
+    id: number;
     latitude: number | null;
     longitude: number | null;
     type: string;
-    node_id: number | null;
     /** Epoch ms da última vez que o nó deu notícia; null se nunca reportou. */
     last_seen: number | null;
     /** Se `last_seen` está dentro da janela de atividade. Evita que o cliente
@@ -83,11 +79,10 @@ export interface SensorSummaryDTO {
 }
 
 export interface SensorDetailDTO {
-    id: string;
+    id: number;
     latitude: number | null;
     longitude: number | null;
     type: string;
-    node_id: number | null;
     lastMeasurements: MeasurementOutputDTO[];
 }
 
@@ -116,7 +111,6 @@ export function toSensorSummaryDTO(
         latitude: sensor.latitude,
         longitude: sensor.longitude,
         type: sensor.type,
-        node_id: sensor.nodeId,
         last_seen: sensor.lastSeen ? sensor.lastSeen.getTime() : null,
         active,
         lastMeasurement: lastMeasurement ? toMeasurementDTO(lastMeasurement) : null,
@@ -133,7 +127,6 @@ export function toSensorDetailDTO(
         latitude: sensor.latitude,
         longitude: sensor.longitude,
         type: sensor.type,
-        node_id: sensor.nodeId,
         lastMeasurements: measurements.map(toMeasurementDTO),
     };
 }

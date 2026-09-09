@@ -1,22 +1,20 @@
 export interface HealthcheckResultDTO {
-    id: string;
+    id: number;
     alive: boolean;
 }
 
 export interface CalibrationResultDTO {
-    id: string;
+    id: number;
     ok: boolean;
 }
 
 export interface MeshNodeStatusDTO {
-    id: string;
-    node_id: number;
+    id: number;
     alive: boolean;
 }
 
 export interface MeshNodeMeasurementDTO {
-    id: string;
-    node_id: number;
-    /** null = o nó não respondeu dentro da janela do broadcast. */
+    id: number;
     value: number | null;
+    busy: boolean;
 }

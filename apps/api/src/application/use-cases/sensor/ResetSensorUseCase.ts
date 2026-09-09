@@ -8,7 +8,7 @@ export class ResetSensorUseCase {
         private readonly measurements: MeasurementRepository,
     ) {}
 
-    async execute(id: string): Promise<void> {
+    async execute(id: number): Promise<void> {
         const sensor = await this.sensors.findById(id);
         if (!sensor) throw new NotFoundError("Sensor não encontrado");
 

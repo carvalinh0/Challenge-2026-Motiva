@@ -65,7 +65,7 @@ async function main() {
     }
 
     const now = Date.now();
-    const rows: { sensorId: string; value: number; timestamp: Date }[] = [];
+    const rows: { sensorId: number; value: number; timestamp: Date }[] = [];
 
     sensors.forEach((sensor, index) => {
         const random = makeRandom(index + 1);

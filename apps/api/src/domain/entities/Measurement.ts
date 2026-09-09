@@ -12,7 +12,8 @@ export type MeasurementValue =
 
 export interface Measurement {
     id: number;
-    sensorId: string;
+    /** Id do nó que reportou — o NODE_ID da mesh (ver Sensor.id). */
+    sensorId: number;
     value: number;
     timestamp: Date;
 }
