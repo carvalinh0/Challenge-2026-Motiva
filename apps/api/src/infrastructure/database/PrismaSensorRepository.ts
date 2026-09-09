@@ -9,7 +9,7 @@ import { prisma } from "./prisma";
 
 // Rede de segurança: traduz erro de integridade do banco em erro de aplicação.
 //
-// Os use cases já validam antes (proxy_id existe? node_id livre?), mas entre a
+// Os use cases já validam antes (proxy_id existe? id livre?), mas entre a
 // checagem e a escrita há uma corrida — e qualquer caminho novo que esqueça a
 // validação cairia aqui. Sem esta tradução, o erro vira 500 "Erro interno" com
 // um stack do Prisma no log, sem dizer ao usuário o que ele fez de errado.
@@ -23,9 +23,7 @@ function translatePrismaError(err: unknown): never {
         );
     }
     if (code === "P2002") {
-        throw new ConflictError(
-            "Já existe um registro com esse valor único (id ou node_id).",
-        );
+        throw new ConflictError("Já existe um nó cadastrado com esse id.");
     }
     throw err;
 }
@@ -33,13 +31,12 @@ function translatePrismaError(err: unknown): never {
 // Linha do banco -> entidade de domínio. `type` é TEXT no SQLite (não há enum),
 // então a conversão acontece aqui, na borda.
 type SensorRow = {
-    id: string;
+    id: number;
     name: string | null;
     latitude: number | null;
     longitude: number | null;
     type: string;
-    nodeId: number | null;
-    proxyId: string | null;
+    proxyId: number | null;
     lastSeen: Date | null;
 };
 
@@ -50,20 +47,14 @@ function toDomain(row: SensorRow): Sensor {
         latitude: row.latitude,
         longitude: row.longitude,
         type: (row.type === "proxy" ? "proxy" : "sensor") satisfies SensorType,
-        nodeId: row.nodeId,
         proxyId: row.proxyId,
         lastSeen: row.lastSeen,
     };
 }
 
 export class PrismaSensorRepository implements SensorRepository {
-    async findById(id: string): Promise<Sensor | null> {
+    async findById(id: number): Promise<Sensor | null> {
         const row = await prisma.sensor.findUnique({ where: { id } });
-        return row ? toDomain(row) : null;
-    }
-
-    async findByNodeId(nodeId: number): Promise<Sensor | null> {
-        const row = await prisma.sensor.findUnique({ where: { nodeId } });
         return row ? toDomain(row) : null;
     }
 
@@ -72,18 +63,10 @@ export class PrismaSensorRepository implements SensorRepository {
         return rows.map(toDomain);
     }
 
-    async findByProxyId(proxyId: string): Promise<Sensor[]> {
+    async findByProxyId(proxyId: number): Promise<Sensor[]> {
         const rows = await prisma.sensor.findMany({
             where: { proxyId },
             orderBy: { id: "asc" },
-        });
-        return rows.map(toDomain);
-    }
-
-    async findAllWithNodeId(): Promise<Sensor[]> {
-        const rows = await prisma.sensor.findMany({
-            where: { nodeId: { not: null } },
-            orderBy: { nodeId: "asc" },
         });
         return rows.map(toDomain);
     }
@@ -97,7 +80,6 @@ export class PrismaSensorRepository implements SensorRepository {
                     latitude: data.latitude ?? null,
                     longitude: data.longitude ?? null,
                     type: data.type ?? "sensor",
-                    nodeId: data.nodeId ?? null,
                     proxyId: data.proxyId ?? null,
                 },
             });
@@ -107,7 +89,7 @@ export class PrismaSensorRepository implements SensorRepository {
         }
     }
 
-    async update(id: string, data: UpdateSensorData): Promise<Sensor | null> {
+    async update(id: number, data: UpdateSensorData): Promise<Sensor | null> {
         // Chaves com `undefined` são omitidas para o Prisma não interpretar
         // "campo ausente no PATCH" como "gravar null".
         const patch = Object.fromEntries(
@@ -126,7 +108,7 @@ export class PrismaSensorRepository implements SensorRepository {
         }
     }
 
-    async delete(id: string): Promise<boolean> {
+    async delete(id: number): Promise<boolean> {
         try {
             await prisma.sensor.delete({ where: { id } });
             return true;
@@ -135,7 +117,7 @@ export class PrismaSensorRepository implements SensorRepository {
         }
     }
 
-    async touchLastSeen(id: string): Promise<void> {
+    async touchLastSeen(id: number): Promise<void> {
         await prisma.sensor.update({
             where: { id },
             data: { lastSeen: new Date() },

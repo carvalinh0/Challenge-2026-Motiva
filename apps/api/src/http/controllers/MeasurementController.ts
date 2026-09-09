@@ -5,7 +5,7 @@ import {
     addMeasurementSchema,
     bulkMeasurementsSchema,
 } from "../../application/dtos/measurement.dto";
-import { param, validateBody } from "../middlewares/validate";
+import { idParam, validateBody } from "../middlewares/validate";
 import { noContent, ok } from "../response";
 
 export class MeasurementController {
@@ -16,7 +16,7 @@ export class MeasurementController {
 
     add = async (c: Context) => {
         const body = await validateBody(c, addMeasurementSchema);
-        await this.addMeasurement.execute(param(c, "id"), body);
+        await this.addMeasurement.execute(idParam(c), body);
         return noContent(c);
     };
 

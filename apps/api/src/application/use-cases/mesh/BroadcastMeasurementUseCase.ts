@@ -1,5 +1,6 @@
 import type { SensorRepository } from "../../../domain/repositories/SensorRepository";
 import type { MeshGateway } from "../../../domain/repositories/MeshGateway";
+import { MESH_RESULT_BUSY } from "../../../domain/repositories/MeshGateway";
 import type { MeshNodeMeasurementDTO } from "../../dtos/mesh.dto";
 import { ServiceUnavailableError } from "../../errors/ApplicationError";
 
@@ -20,11 +21,16 @@ export class BroadcastMeasurementUseCase {
         const results = await this.mesh.broadcast("MEASURE");
         const byNode = new Map(results.map((r) => [r.sourceNode, r]));
 
-        const nodes = await this.sensors.findAllWithNodeId();
-        return nodes.map((sensor) => ({
-            id: sensor.id,
-            node_id: sensor.nodeId!,
-            value: byNode.get(sensor.nodeId!)?.result ?? null,
-        }));
+        const nodes = await this.sensors.findAll();
+        return nodes.map((sensor) => {
+            const answered = byNode.get(sensor.id)?.result ?? null;
+            const busy = answered === MESH_RESULT_BUSY;
+
+            return {
+                id: sensor.id,
+                value: busy ? null : answered,
+                busy,
+            };
+        });
     }
 }

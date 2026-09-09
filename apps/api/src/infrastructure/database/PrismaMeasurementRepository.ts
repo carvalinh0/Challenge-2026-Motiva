@@ -3,11 +3,11 @@ import type { MeasurementRepository } from "../../domain/repositories/Measuremen
 import { prisma } from "./prisma";
 
 export class PrismaMeasurementRepository implements MeasurementRepository {
-    async create(sensorId: string, value: number): Promise<Measurement> {
+    async create(sensorId: number, value: number): Promise<Measurement> {
         return prisma.measurement.create({ data: { sensorId, value } });
     }
 
-    async findLatestBySensor(sensorId: string, limit: number): Promise<Measurement[]> {
+    async findLatestBySensor(sensorId: number, limit: number): Promise<Measurement[]> {
         return prisma.measurement.findMany({
             where: { sensorId },
             orderBy: { timestamp: "desc" },
@@ -15,7 +15,7 @@ export class PrismaMeasurementRepository implements MeasurementRepository {
         });
     }
 
-    async findLastBySensor(sensorId: string): Promise<Measurement | null> {
+    async findLastBySensor(sensorId: number): Promise<Measurement | null> {
         return prisma.measurement.findFirst({
             where: { sensorId },
             orderBy: { timestamp: "desc" },
@@ -29,7 +29,7 @@ export class PrismaMeasurementRepository implements MeasurementRepository {
         });
     }
 
-    async deleteBySensor(sensorId: string): Promise<void> {
+    async deleteBySensor(sensorId: number): Promise<void> {
         await prisma.measurement.deleteMany({ where: { sensorId } });
     }
 }

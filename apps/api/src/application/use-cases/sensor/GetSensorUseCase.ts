@@ -9,7 +9,7 @@ export class GetSensorUseCase {
         private readonly measurements: MeasurementRepository,
     ) {}
 
-    async execute(id: string, measurementLimit: number): Promise<SensorDetailDTO> {
+    async execute(id: number, measurementLimit: number): Promise<SensorDetailDTO> {
         const sensor = await this.sensors.findById(id);
         if (!sensor) throw new NotFoundError("Sensor não encontrado");
 

@@ -20,11 +20,10 @@ export class BroadcastHealthcheckUseCase {
         const results = await this.mesh.broadcast("HEALTHCHECK");
         const answered = new Set(results.map((r) => r.sourceNode));
 
-        const nodes = await this.sensors.findAllWithNodeId();
+        const nodes = await this.sensors.findAll();
         return nodes.map((sensor) => ({
             id: sensor.id,
-            node_id: sensor.nodeId!,
-            alive: answered.has(sensor.nodeId!),
+            alive: answered.has(sensor.id),
         }));
     }
 }

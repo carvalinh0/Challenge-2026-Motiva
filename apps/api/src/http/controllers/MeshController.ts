@@ -7,7 +7,7 @@ import type { BroadcastHealthcheckUseCase } from "../../application/use-cases/me
 import type { BroadcastMeasurementUseCase } from "../../application/use-cases/mesh/BroadcastMeasurementUseCase";
 import type { MeshGateway } from "../../domain/repositories/MeshGateway";
 import { log } from "../../infrastructure/providers/logger";
-import { param } from "../middlewares/validate";
+import { idParam } from "../middlewares/validate";
 import { ok } from "../response";
 
 const SSE_KEEPALIVE_MS = 15_000;
@@ -23,13 +23,13 @@ export class MeshController {
     ) {}
 
     measure = async (c: Context) =>
-        ok(c, await this.requestMeasurement.execute(param(c, "id")));
+        ok(c, await this.requestMeasurement.execute(idParam(c)));
 
     healthcheck = async (c: Context) =>
-        ok(c, await this.requestHealthcheck.execute(param(c, "id")));
+        ok(c, await this.requestHealthcheck.execute(idParam(c)));
 
     calibrate = async (c: Context) =>
-        ok(c, await this.requestCalibration.execute(param(c, "id")));
+        ok(c, await this.requestCalibration.execute(idParam(c)));
 
     healthBroadcast = async (c: Context) =>
         ok(c, { status: await this.broadcastHealthcheck.execute() });

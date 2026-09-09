@@ -5,7 +5,7 @@ export class DeleteSensorUseCase {
     constructor(private readonly sensors: SensorRepository) {}
 
     // As medições somem junto por cascade no schema — não precisa apagar à mão.
-    async execute(id: string): Promise<void> {
+    async execute(id: number): Promise<void> {
         const deleted = await this.sensors.delete(id);
         if (!deleted) throw new NotFoundError("Sensor não encontrado");
     }

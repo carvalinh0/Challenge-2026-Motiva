@@ -18,7 +18,7 @@ export const bulkMeasurementsSchema = z.object({
     data: z
         .array(
             z.object({
-                id: z.string().min(1),
+                id: z.number().int().min(0).max(65535),
                 value: measurementValue,
             }),
         )
@@ -28,5 +28,5 @@ export type BulkMeasurementsDTO = z.infer<typeof bulkMeasurementsSchema>;
 
 export interface BulkMeasurementsResultDTO {
     /** Ids que não existem no banco — o device deve cadastrá-los e reenviar. */
-    failed: string[];
+    failed: number[];
 }

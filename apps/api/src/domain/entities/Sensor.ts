@@ -4,19 +4,21 @@
 export type SensorType = "sensor" | "proxy";
 
 export interface Sensor {
-    id: string;
+    /** NODE_ID na mesh LoRa — a identidade do nó, igual ao `#define NODE_ID` do firmware. */
+    id: number;
     name: string | null;
     latitude: number | null;
     longitude: number | null;
     type: SensorType;
-    /** NODE_ID na mesh LoRa. Sem ele o nó não pode ser acionado nem correlacionado. */
-    nodeId: number | null;
-    proxyId: string | null;
+    proxyId: number | null;
     lastSeen: Date | null;
 }
 
-/** NODE_ID reservado ao proxy na mesh (MESH_PROXY_NODE_ID no firmware). */
+/** Id reservado ao proxy na mesh (MESH_PROXY_NODE_ID no firmware). */
 export const PROXY_NODE_ID = 0;
+
+/** Faixa válida: NODE_ID é uint16 no pacote da mesh (apps/sensor/mesh_protocol.h). */
+export const MAX_NODE_ID = 65535;
 
 export function isProxy(sensor: Sensor): boolean {
     return sensor.type === "proxy";
@@ -30,10 +32,6 @@ export function isProxy(sensor: Sensor): boolean {
 export function isActive(sensor: Sensor, activeWindowMs: number, now = Date.now()): boolean {
     if (!sensor.lastSeen) return false;
     return now - sensor.lastSeen.getTime() <= activeWindowMs;
-}
-
-export function canReceiveMeshCommand(sensor: Sensor): boolean {
-    return sensor.nodeId !== null;
 }
 
 const EARTH_RADIUS_KM = 6371;

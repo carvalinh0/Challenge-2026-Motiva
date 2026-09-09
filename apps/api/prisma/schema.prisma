@@ -12,16 +12,12 @@ datasource db {
 // extra de ponte MQTT. É por isso que `type` discrimina em vez de haver duas
 // tabelas — e por isso a auto-relação abaixo (um proxy tem vários sensores).
 model Sensor {
-  id        String    @id
+  id        Int       @id
   name      String?
   latitude  Float?
   longitude Float?
   type      String    @default("sensor")
-  // NODE_ID na mesh LoRa (ver apps/sensor/config.h). Único porque é o
-  // endereço do nó no rádio — dois nós com o mesmo id tornariam impossível
-  // saber de quem veio uma medição que chega por MQTT.
-  nodeId    Int?      @unique @map("node_id")
-  proxyId   String?   @map("proxy_id")
+  proxyId   Int?      @map("proxy_id")
   // Atualizado a cada resposta da mesh (medição, healthcheck ou calibração).
   // É o que decide "ativo" vs "perdido" na listagem.
   lastSeen  DateTime? @map("last_seen")
@@ -36,7 +32,7 @@ model Sensor {
 
 model Measurement {
   id        Int      @id @default(autoincrement())
-  sensorId  String   @map("sensor_id")
+  sensorId  Int      @map("sensor_id")
   // 0 = abaixo do limite, 1 = acima, 2 = sem leitura confiável. Mesmo código
   // que sai do firmware (ver apps/sensor/command_dispatcher.h) — a API não
   // reinterpreta.
