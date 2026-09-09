@@ -54,6 +54,7 @@ void goToDeepSleep() {
     Serial.println("[SLEEP] AVISO: fila de TX nao esvaziou a tempo — algum pacote foi perdido.");
   }
 
+  grassSensorPowerDownMotor(motor);
   loraTaskPrepareForDeepSleep(); // arma o wakeup por DIO1 (ext0)
   esp_sleep_enable_timer_wakeup(DEEP_SLEEP_INTERVAL_US); // + wakeup por timer, o que vier primeiro
 
@@ -62,12 +63,6 @@ void goToDeepSleep() {
   esp_deep_sleep_start();
 }
 
-// Ping rápido pro proxy, ANTES de calibração/medição (que podem travar ou
-// abortar o boot). Se isso chegar no proxy mas o resto do ciclo não, já
-// isola o problema: mesh/MQTT estão ok, quem travou foi motor/TOF/calibração.
-// Só faz sentido pra sensor comum (o proxy não precisa avisar a si mesmo) e
-// só em wake autônomo — WAKE_LORA_RX já responde ao comando específico que
-// chegou, não precisa de um ping extra.
 void sendEarlyHealthcheck() {
   uint8_t alive = 1;
   MeshPacket ping = meshBuildPacket(MESH_PROXY_NODE_ID, CMD_RESULT_HEALTHCHECK, &alive, 1);
@@ -94,7 +89,7 @@ void runSensorCommonCycle(WakeReason wakeReason) {
       if (loraTaskPollIncoming(incoming)) {
         MeshCommand cmd = (MeshCommand)incoming.command;
         uint8_t result = commandDispatchExecute(cmd, motor, sensor);
-        MeshPacket response = meshBuildPacket(MESH_PROXY_NODE_ID, commandDispatchResultFor(cmd), &result, 1);
+        MeshPacket response = meshBuildPacket(MESH_PROXY_NODE_ID, meshResultCommandFor(cmd), &result, 1);
         loraTaskSendAndWait(response, 5000);
 
         // Reabre a janela. Uma MEASURE sozinha demora bem mais que
@@ -158,7 +153,7 @@ void setup() {
   // não haveria NENHUM jeito de avisar o proxy que o boot chegou até aqui.
   loraTaskStart();
 
-  if (!IS_PROXY && (wakeReason == WAKE_TIMER || wakeReason == WAKE_POWER_ON)) {
+  if (!IS_PROXY && wakeReason == WAKE_POWER_ON) {
     sendEarlyHealthcheck();
   }
 
@@ -178,9 +173,14 @@ void setup() {
   // ESP.restart() (portal WiFi), onde a RTC memory tipicamente sobrevive e
   // recalibrar seria desnecessário.
   if (!rtcIsCalibrated()) {
-    if (!grassSensorCalibrate(motor, sensor)) {
-      Serial.println("[BOOT] Falha na calibracao. Abortando.");
-      abort();
+    loraTaskSetNodeBusy(true);
+    bool calibrated = grassSensorCalibrate(motor, sensor);
+    loraTaskSetNodeBusy(false);
+
+    if (!calibrated) {
+      Serial.println("[BOOT] Falha na calibracao. O no vai subir SEM janela:");
+      Serial.println("[BOOT] responde healthcheck, mas toda medicao sai como SEM_LEITURA_CONFIAVEL.");
+      Serial.println("[BOOT] Nova tentativa a cada wake, ou sob comando CALIBRATE pela mesh.");
     }
   } else {
     Serial.println("[BOOT] Calibracao ja presente na RTC memory, pulando.");

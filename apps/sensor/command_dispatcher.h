@@ -10,6 +10,3 @@
 //   HEALTHCHECK -> 1 (sempre, se chegou até aqui é porque está vivo)
 uint8_t commandDispatchExecute(MeshCommand command, AccelStepper& motor, VL53L1X& sensor);
 
-// Mapeia um comando de PEDIDO (CMD_CALIBRATE/CMD_MEASURE/CMD_HEALTHCHECK) pro
-// comando de RESPOSTA correspondente (CMD_RESULT_*).
-MeshCommand commandDispatchResultFor(MeshCommand requestCommand);

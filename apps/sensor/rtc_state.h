@@ -16,6 +16,10 @@ long rtcGetWindowStart();
 long rtcGetWindowEnd();
 void rtcSetCalibratedWindow(long windowStart, long windowEnd);
 void rtcInvalidateCalibration(); // força recalibrar no próximo boot "quente" que passar por aqui, se algum dia for necessário
+bool rtcHasMotorPosition();
+long rtcGetMotorPosition();
+void rtcSetMotorPosition(long position);
+void rtcClearMotorPosition();
 
 // --- Cache de deduplicação da mesh (substitui TTL — ver mesh_protocol.h) ---
 // Ring buffer simples: sem timestamp/expiração, porque millis() zera a cada

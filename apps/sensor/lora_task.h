@@ -71,6 +71,22 @@ bool loraTaskWaitForTxDrain(uint32_t timeoutMs);
 // task). Não bloqueia; retorna false se não houver nada pendente.
 bool loraTaskPollIncoming(MeshPacket& outPacket);
 
+// Avisa a task de LoRa que o núcleo principal está ocupado com o hardware
+// (varredura de medição ou calibração) e não vai drenar a fila de entrada tão
+// cedo — uma medição leva bem mais que o intervalo entre dois healthchecks.
+//
+// Enquanto ocupado, a própria task responde HEALTHCHECK direto do rádio, sem
+// esperar o núcleo principal. Isso muda o significado da resposta e a mudança é
+// deliberada: ocupado, "vivo" passa a provar que o rádio e a mesh estão de pé,
+// não que o núcleo principal está. Em compensação, é a única janela em que o
+// nó ficaria mudo — e um nó mudo é indistinguível de um nó morto do lado da
+// API. Quando o núcleo está livre, quem responde continua sendo ele, e a
+// resposta segue provando tudo como antes.
+//
+// Só afeta HEALTHCHECK. MEASURE e CALIBRATE continuam enfileirados: existe um
+// motor só, e não há como executá-los em paralelo.
+void loraTaskSetNodeBusy(bool busy);
+
 // Configura o DIO1 como fonte de wakeup (ext0) para o PRÓXIMO deep sleep.
 // Chamar isso depois que a task de LoRa já estiver em RX contínuo, e sempre
 // imediatamente antes de esp_deep_sleep_start().

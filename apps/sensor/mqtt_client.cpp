@@ -70,7 +70,7 @@ bool s_broadcastActive = false;
 MeshCommand s_broadcastCommand = CMD_HEALTHCHECK;
 unsigned long s_broadcastDeadlineMs = 0;
 
-// Inverso de commandDispatchResultFor() (command_dispatcher.cpp): dado o
+// Inverso de meshResultCommandFor() (mesh_protocol.cpp): dado o
 // CMD_RESULT_* que chegou, qual CMD_* original ele responde. Precisa disso
 // pra publicar resultados autônomos (ver drainMeshResponses) — não tem
 // pending request nem broadcast de onde tirar essa informação.
@@ -114,7 +114,16 @@ void publishResultJson(uint16_t sourceNode, MeshCommand originalCommand, uint8_t
   size_t len = serializeJson(doc, buffer, sizeof(buffer));
 
   if (!s_mqtt.publish(MQTT_TOPIC_RESULT, (const uint8_t*)buffer, len)) {
-    Serial.println("[MQTT] publish() falhou mesmo apos tentativa de reconexao.");
+    Serial.println("[MQTT] publish() falhou (socket provavelmente morto pelo keepalive). Reconectando e tentando de novo...");
+    s_mqtt.disconnect();
+    reconnectMqttIfNeeded();
+
+    if (!s_mqtt.publish(MQTT_TOPIC_RESULT, (const uint8_t*)buffer, len)) {
+      Serial.println("[MQTT] publish() falhou DE NOVO apos reconectar — este resultado foi PERDIDO.");
+      return;
+    }
+    Serial.print("[MQTT] Publicado na segunda tentativa: ");
+    Serial.println(buffer);
   } else {
     Serial.print("[MQTT] Publicado em ");
     Serial.print(MQTT_TOPIC_RESULT);
@@ -251,17 +260,21 @@ void drainMeshResponses() {
     // Resposta de um comando em broadcast: nao ha um targetNode unico pra
     // casar, entao qualquer resposta do comando que esta em broadcast no
     // momento e publicada direto (varios sensores diferentes podem responder).
-    if (s_broadcastActive && packet.command == commandDispatchResultFor(s_broadcastCommand)) {
+    if (s_broadcastActive && packet.command == meshResultCommandFor(s_broadcastCommand)) {
       uint8_t result = (packet.payloadLen > 0) ? packet.payload[0] : 2;
       publishResultJson(packet.sourceNode, s_broadcastCommand, result);
       continue;
     }
 
+    const MeshCommand answeredCommand = originalCommandFor((MeshCommand)packet.command);
+
     bool matchedPending = false;
     for (int i = 0; i < MAX_PENDING_REQUESTS; i++) {
-      if (s_pending[i].active && s_pending[i].targetNode == packet.sourceNode) {
+      if (s_pending[i].active &&
+          s_pending[i].targetNode == packet.sourceNode &&
+          s_pending[i].command == answeredCommand) {
         uint8_t result = (packet.payloadLen > 0) ? packet.payload[0] : 2;
-        publishResultJson(packet.sourceNode, s_pending[i].command, result);
+        publishResultJson(packet.sourceNode, answeredCommand, result);
         s_pending[i].active = false;
         matchedPending = true;
         break;
@@ -284,11 +297,7 @@ void drainMeshResponses() {
       Serial.print(packet.sourceNode);
       Serial.println(" — publicando mesmo assim.");
       uint8_t result = (packet.payloadLen > 0) ? packet.payload[0] : 2;
-      publishResultJson(
-        packet.sourceNode,
-        originalCommandFor((MeshCommand)packet.command),
-        result
-      );
+      publishResultJson(packet.sourceNode, answeredCommand, result);
     }
   }
 }

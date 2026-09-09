@@ -12,6 +12,13 @@ enum MeshCommand : uint8_t {
   CMD_RESULT_CALIBRATE    = 6, // payload[0] = 1 (ok) / 0 (falhou)
 };
 
+// payload[0] devolvido quando o nó RECUSA o pedido por estar ocupado: existe
+// um motor só, e MEASURE/CALIBRATE não rodam em paralelo com uma varredura já
+// em andamento. Fica fora da faixa 0/1/2 das medições de propósito — quem
+// recebe tem que tratar como "não houve leitura" e NUNCA gravar como se fosse
+// uma (ver IngestMeshResultUseCase na API).
+#define MESH_RESULT_BUSY 3
+
 // Pacote lógico da mesh. Sem campo de TTL/hop-count por decisão de projeto —
 // o corte de flood é feito por deduplicação de messageId (ver rtc_state.h),
 // não por contagem de saltos, já que o tamanho da cadeia de sensores é variável.
@@ -38,6 +45,13 @@ bool meshDeserializePacket(const uint8_t* buffer, size_t bufferSize, MeshPacket&
 // Gera um messageId "aleatório o bastante" para dedup (não precisa ser
 // criptograficamente forte, só improvável de colidir dentro da janela do cache).
 uint32_t meshGenerateMessageId();
+
+// Mapeia um comando de PEDIDO (CMD_CALIBRATE/CMD_MEASURE/CMD_HEALTHCHECK) pro
+// comando de RESPOSTA correspondente (CMD_RESULT_*). Mora aqui, junto do enum,
+// porque é tradução de protocolo: tanto quem executa o comando (o dispatcher)
+// quanto quem só responde "ocupado" sem executar nada (a task de LoRa)
+// precisam dela, e duplicar essa tabela é como ela sairia do lugar.
+MeshCommand meshResultCommandFor(MeshCommand requestCommand);
 
 // Monta um MeshPacket pronto pra enviar.
 MeshPacket meshBuildPacket(uint16_t destNode, MeshCommand command,
