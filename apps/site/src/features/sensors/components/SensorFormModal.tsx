@@ -9,7 +9,7 @@ interface SensorFormModalProps {
   mode: SensorFormMode;
   initial?: SensorSummary;
   onClose: () => void;
-  onSubmit: (id: string, data: SensorInput) => Promise<void>;
+  onSubmit: (id: number, data: SensorInput) => Promise<void>;
 }
 
 /**
@@ -29,11 +29,10 @@ export function SensorFormModal({
   // Campos como string: é o que o <input> devolve, e permite distinguir
   // "vazio" de 0 — sem isso um "sem coordenada" viraria a ilha de Null.
   const [form, setForm] = useState({
-    id: initial?.id ?? "",
+    id: initial?.id?.toString() ?? (mode === "createProxy" ? "0" : ""),
     name: "",
     latitude: initial?.latitude?.toString() ?? "",
     longitude: initial?.longitude?.toString() ?? "",
-    node_id: initial?.node_id?.toString() ?? (mode === "createProxy" ? "0" : ""),
     proxy_id: "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -52,11 +51,10 @@ export function SensorFormModal({
         ...(form.name ? { name: form.name } : {}),
         ...(form.latitude !== "" ? { latitude: Number(form.latitude) } : {}),
         ...(form.longitude !== "" ? { longitude: Number(form.longitude) } : {}),
-        ...(form.node_id !== "" ? { node_id: Number(form.node_id) } : {}),
-        ...(!isProxy && form.proxy_id ? { proxy_id: form.proxy_id } : {}),
+        ...(!isProxy && form.proxy_id ? { proxy_id: Number(form.proxy_id) } : {}),
       };
 
-      await onSubmit(form.id, payload);
+      await onSubmit(Number(form.id), payload);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao salvar");
@@ -119,17 +117,6 @@ export function SensorFormModal({
               onValueChange={(v) => update("longitude", v)}
             />
           </div>
-          <Field
-            label="node_id"
-            type="number"
-            value={form.node_id}
-            onValueChange={(v) => update("node_id", v)}
-            hint={
-              isProxy
-                ? "O proxy precisa ser 0 (MESH_PROXY_NODE_ID no firmware)."
-                : "NODE_ID na mesh LoRa. Sem ele o nó não pode ser acionado."
-            }
-          />
           {!isProxy && (
             <Field
               label="proxy_id"

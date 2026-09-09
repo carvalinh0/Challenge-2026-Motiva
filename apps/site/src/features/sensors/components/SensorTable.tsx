@@ -33,7 +33,6 @@ export function SensorTable({
           <tr>
             <th className="p-2">Id</th>
             <th className="p-2">Tipo</th>
-            <th className="p-2">node_id</th>
             <th className="p-2">Última leitura</th>
             <th className="p-2">Quando</th>
             <th className="p-2 text-right">Ações</th>
@@ -48,7 +47,6 @@ export function SensorTable({
                 ? nivelFromValue(sensor.lastMeasurement?.value)
                 : (getNivel(sensor) ?? nivelFromValue(null));
             const busy = running[sensor.id];
-            const withoutNode = sensor.node_id == null;
 
             return (
               <tr key={sensor.id} className="border-b border-gray-100 dark:border-gray-600">
@@ -64,7 +62,6 @@ export function SensorTable({
                     {sensor.type}
                   </span>
                 </td>
-                <td className="p-2 tabular-nums">{sensor.node_id ?? "—"}</td>
                 <td className="p-2">
                   {/* Estado com rótulo, nunca só cor. */}
                   <span className={`rounded-full px-2 py-0.5 text-xs ${NIVEL_BADGE_CLASS[nivel]}`}>
@@ -77,28 +74,24 @@ export function SensorTable({
                 <td className="p-2">
                   <div className="flex justify-end gap-1">
                     <SensorActionButton
-                      title={
-                        withoutNode
-                          ? "Precisa de node_id para acionar a mesh"
-                          : "Medir agora (mesh)"
-                      }
+                      title="Medir agora (mesh)"
                       icon={Ruler}
                       loading={busy === "measure"}
-                      disabled={Boolean(busy) || withoutNode}
+                      disabled={Boolean(busy)}
                       onClick={() => onMeasure(sensor)}
                     />
                     <SensorActionButton
-                      title={withoutNode ? "Precisa de node_id" : "Healthcheck (mesh)"}
+                      title="Healthcheck (mesh)"
                       icon={Activity}
                       loading={busy === "health"}
-                      disabled={Boolean(busy) || withoutNode}
+                      disabled={Boolean(busy)}
                       onClick={() => onHealthcheck(sensor)}
                     />
                     <SensorActionButton
-                      title={withoutNode ? "Precisa de node_id" : "Calibrar (mesh)"}
+                      title="Calibrar (mesh)"
                       icon={Crosshair}
                       loading={busy === "calibrate"}
-                      disabled={Boolean(busy) || withoutNode}
+                      disabled={Boolean(busy)}
                       onClick={() => onCalibrate(sensor)}
                     />
                     <SensorActionButton

@@ -9,7 +9,7 @@ interface RouteItineraryProps {
   departure: string;
 }
 
-function heightOf(candidates: RouteCandidateSensor[], id: string): number | null {
+function heightOf(candidates: RouteCandidateSensor[], id: number): number | null {
   return candidates.find((candidate) => candidate.id === id)?.estimatedHeight ?? null;
 }
 

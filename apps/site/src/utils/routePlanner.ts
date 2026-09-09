@@ -19,7 +19,8 @@ const BASE = 0;
 const EXACT_ORDER_MAX_STOPS = 12;
 
 export interface RouteCandidate {
-  id: string;
+  /** Id do nó na mesh (ver SensorSummary.id). */
+  id: number;
   /** Prioridade de roçada. Quanto maior, mais urgente. */
   score: number;
 }
@@ -307,6 +308,6 @@ export function planMowingRoute(input: RoutePlanInput): RoutePlan {
     overtimeSeconds: Math.max(0, totalSeconds - workdaySeconds),
     leftOut: candidates
       .filter((_, index) => !chosen.has(index))
-      .sort((a, b) => b.score - a.score || a.id.localeCompare(b.id)),
+      .sort((a, b) => b.score - a.score || a.id - b.id),
   };
 }

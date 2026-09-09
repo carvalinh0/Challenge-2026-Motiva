@@ -18,7 +18,7 @@ export function useSensorActions(reload: () => Promise<void>) {
 
   const run = useCallback(
     async <T>(
-      sensorId: string,
+      sensorId: number,
       action: SensorAction,
       fn: () => Promise<T>,
       successMessage: (result: T) => string,

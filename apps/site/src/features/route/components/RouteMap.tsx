@@ -10,7 +10,7 @@ const STOP_HEX = "#6126F1";
 const LEFT_OUT_HEX = "#9ca3af";
 
 export interface MapPoint {
-  id: string;
+  id: number;
   point: GeoPoint;
 }
 

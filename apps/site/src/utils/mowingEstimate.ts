@@ -34,12 +34,6 @@ export interface SensorWithEstimate extends SensorSummary {
   estimate: MowingEstimate;
 }
 
-/**
- * "Está pedindo roçada agora?" — decidido pela sequência de dias em alto, não
- * pela última leitura isolada. Uma única leitura "sem leitura confiável" no fim
- * do dia tirava da fila um trecho com duas semanas de vegetação; a sequência já
- * trata leitura duvidosa como inconclusiva em vez de negativa.
- */
 function isDetectingVegetation(sensor: SensorSummary): boolean {
   return sensor.consecutiveHighDays > 0;
 }
@@ -90,7 +84,7 @@ export function getPrioritySensors(sensors: SensorSummary[]): SensorWithEstimate
     .sort(
       (a, b) =>
         b.estimate.daysDetecting - a.estimate.daysDetecting ||
-        a.id.localeCompare(b.id),
+        a.id - b.id,
     );
 }
 

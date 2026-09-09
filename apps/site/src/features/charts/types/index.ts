@@ -13,7 +13,7 @@ export const PERIOD_OPTIONS: readonly PeriodOption[] = [
 
 /** Uma linha do gráfico de barras empilhadas (um nó). */
 export interface ReadingsBySensor {
-  id: string;
+  id: number;
   Alto: number;
   Baixo: number;
   "Sem leitura": number;
