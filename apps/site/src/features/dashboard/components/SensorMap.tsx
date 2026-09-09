@@ -36,9 +36,9 @@ function SensorPopup({ sensor }: { sensor: SensorSummary }) {
   return (
     <div className="min-w-52 text-gray-800 dark:text-gray-100">
       <div className="flex items-center justify-between gap-3">
-        <strong className="text-sm">{sensor.id}</strong>
+        <strong className="text-sm">Nó {sensor.id}</strong>
         <span className="text-xs text-gray-500 dark:text-gray-300">
-          {isProxy ? "Proxy" : `Nó ${sensor.node_id ?? "—"}`}
+          {isProxy ? "Proxy" : "Sensor"}
         </span>
       </div>
 

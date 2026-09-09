@@ -26,11 +26,15 @@ export interface Measurement {
 
 /** Item da listagem `GET /api/sensors`. */
 export interface SensorSummary {
-  id: string;
+  /**
+   * O NODE_ID da mesh LoRa — a identidade do nó, igual ao `#define NODE_ID` do
+   * firmware. Antes havia `id` (texto) e `node_id` (número) separados, o que
+   * permitia o cadastro apontar para um rádio diferente do real.
+   */
+  id: number;
   latitude: number | null;
   longitude: number | null;
   type: SensorType;
-  node_id: number | null;
   /** Epoch ms da última vez que o nó deu notícia; null se nunca reportou. */
   last_seen: number | null;
   /** `last_seen` dentro da janela de atividade (SENSOR_ACTIVE_WINDOW_MS na API). */
@@ -45,11 +49,10 @@ export interface SensorSummary {
 
 /** Resposta de `GET /api/sensors/:id`, com histórico. */
 export interface SensorDetail {
-  id: string;
+  id: number;
   latitude: number | null;
   longitude: number | null;
   type: SensorType;
-  node_id: number | null;
   lastMeasurements: Measurement[];
 }
 
@@ -63,8 +66,7 @@ export interface SensorInput {
   latitude?: number;
   longitude?: number;
   type?: SensorType;
-  proxy_id?: string;
-  node_id?: number;
+  proxy_id?: number;
 }
 
 // --- Mesh ---
@@ -89,16 +91,14 @@ export interface CalibrationResult {
 }
 
 export interface MeshNodeStatus {
-  id: string;
-  node_id: number;
+  id: number;
   alive: boolean;
 }
 
 export interface MeshNodeMeasurement {
-  id: string;
-  node_id: number;
-  /** null = o nó não respondeu dentro da janela do broadcast. */
+  id: number;
   value: number | null;
+  busy: boolean;
 }
 
 /** Filtros de `GET /api/sensors`. */

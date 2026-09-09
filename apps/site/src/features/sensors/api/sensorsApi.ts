@@ -11,7 +11,7 @@ import type {
   SensorSummary,
 } from "@/types/sensor";
 
-const id = (value: string) => encodeURIComponent(value);
+const id = (value: number) => String(value);
 
 /** Rotas de sensores, proxies e medições. */
 export const sensorsApi = {
@@ -26,26 +26,26 @@ export const sensorsApi = {
       })}`,
     ),
 
-  get: (sensorId: string, measurements = DEFAULT_HISTORY_SIZE) =>
+  get: (sensorId: number, measurements = DEFAULT_HISTORY_SIZE) =>
     request<SensorDetail>(`/api/sensors/${id(sensorId)}${toQuery({ measurements })}`),
 
-  create: (sensorId: string, data: SensorInput) =>
+  create: (sensorId: number, data: SensorInput) =>
     request<null>(`/api/sensors/${id(sensorId)}`, { method: "POST", body: data }),
 
-  update: (sensorId: string, data: SensorInput) =>
+  update: (sensorId: number, data: SensorInput) =>
     request<SensorSummary>(`/api/sensors/${id(sensorId)}`, {
       method: "PATCH",
       body: data,
     }),
 
-  remove: (sensorId: string) =>
+  remove: (sensorId: number) =>
     request<null>(`/api/sensors/${id(sensorId)}`, { method: "DELETE" }),
 
-  reset: (sensorId: string) =>
+  reset: (sensorId: number) =>
     request<null>(`/api/sensors/${id(sensorId)}/reset`, { method: "POST" }),
 
   // --- Medições (push direto, sem passar pela mesh) ---
-  addMeasurement: (sensorId: string, value: MeasurementValue) =>
+  addMeasurement: (sensorId: number, value: MeasurementValue) =>
     request<null>(`/api/sensors/${id(sensorId)}/measurement`, {
       method: "POST",
       body: { value },
@@ -58,27 +58,27 @@ export const sensorsApi = {
     }),
 
   // --- Proxy ---
-  createProxy: (proxyId: string, data: SensorInput) =>
+  createProxy: (proxyId: number, data: SensorInput) =>
     request<null>(`/api/proxy/${id(proxyId)}`, { method: "POST", body: data }),
 
-  getProxy: (proxyId: string) => request<ProxyDetail>(`/api/proxy/${id(proxyId)}`),
+  getProxy: (proxyId: number) => request<ProxyDetail>(`/api/proxy/${id(proxyId)}`),
 
-  removeProxy: (proxyId: string) =>
+  removeProxy: (proxyId: number) =>
     request<null>(`/api/proxy/${id(proxyId)}`, { method: "DELETE" }),
 
-  resetProxy: (proxyId: string) =>
+  resetProxy: (proxyId: number) =>
     request<null>(`/api/proxy/${id(proxyId)}/reset`, { method: "POST" }),
 
   // --- Mesh: acionam o hardware de verdade e podem demorar ---
   /** Medição real via mesh (~90s no pior caso). */
-  measureNow: (sensorId: string) =>
+  measureNow: (sensorId: number) =>
     request<number>(`/api/sensors/${id(sensorId)}/measurement`),
 
-  healthcheck: (sensorId: string) =>
+  healthcheck: (sensorId: number) =>
     request<HealthcheckResult>(`/api/sensors/${id(sensorId)}/healthcheck`),
 
   /** Calibração remota (~240s: varre o range inteiro nas duas direções). */
-  calibrate: (sensorId: string) =>
+  calibrate: (sensorId: number) =>
     request<CalibrationResult>(`/api/sensors/${id(sensorId)}/calibrate`, {
       method: "POST",
     }),

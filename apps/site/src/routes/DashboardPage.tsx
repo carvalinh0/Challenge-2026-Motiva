@@ -48,12 +48,18 @@ export function DashboardPage() {
         });
       } else {
         const result = await dashboardApi.measurementBroadcast();
-        const answered = (result?.measurements ?? []).filter(
-          (node) => node.value !== null,
-        ).length;
+        const nodes = result?.measurements ?? [];
+        const answered = nodes.filter((node) => node.value !== null).length;
+        const busy = nodes.filter((node) => node.busy).length;
+
         setFeedback({
           tone: "success",
-          text: `${answered} de ${result?.measurements?.length ?? 0} nó(s) devolveram medição.`,
+          text:
+            `${answered} de ${nodes.length} nó(s) devolveram medição.` +
+            // Nó ocupado não é nó mudo: ele respondeu recusando porque já
+            // estava varrendo. Sem essa distinção o operador acharia que o nó
+            // caiu e iria até lá à toa.
+            (busy > 0 ? ` ${busy} estava(m) ocupado(s) com outra varredura.` : ""),
         });
       }
       await reload();

@@ -31,7 +31,7 @@ export function SensorsPage() {
   const { sensors, loading, error, reload, refresh } = useSensors(filters);
   const actions = useSensorActions(reload);
 
-  async function submitForm(id: string, data: SensorInput) {
+  async function submitForm(id: number, data: SensorInput) {
     if (modal?.mode === "edit") await sensorsApi.update(id, data);
     else if (modal?.mode === "createProxy") await sensorsApi.createProxy(id, data);
     else await sensorsApi.create(id, data);
