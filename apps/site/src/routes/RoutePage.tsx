@@ -1,40 +1,192 @@
-import { useMemo } from "react";
-import { Clock, MapPinned, Route, TriangleAlert } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Clock, ExternalLink, MapPinned, Route } from "lucide-react";
 import { Alert } from "@/components/Alert";
 import { Card } from "@/components/Card";
 import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { useDashboard } from "@/features/dashboard";
+import { sensorsApi } from "@/features/sensors";
 import {
   RouteItinerary,
   RouteMap,
   RouteSettingsForm,
+  routeApi,
   useRoutePlan,
 } from "@/features/route";
-import { addMinutesToClock, formatDuration } from "@/utils/format";
+import type { DefinedRoute } from "@/features/route";
+import { formatDuration } from "@/utils/format";
+import { getNivel, nivelFromValue } from "@/utils/sensorStatus";
+
+const EMPTY_ROUTE_SENSOR_IDS: readonly number[] = [];
 
 export function RoutePage() {
+  const [definedRoute, setDefinedRoute] = useState<DefinedRoute | null>(null);
+  const [manualOrder, setManualOrder] = useState<number[] | null>(null);
+  const [leftOutPage, setLeftOutPage] = useState(0);
+  const [routeActionError, setRouteActionError] = useState<string | null>(null);
+
   const {
     sensors,
     loading: loadingSensors,
     error: sensorsError,
+    reload: reloadSensors,
   } = useDashboard();
-  const { settings, update, candidates, plan, matrixSource, loading, error } =
-    useRoutePlan(sensors);
+  const {
+    settings,
+    update,
+    candidates,
+    plan,
+    geometry,
+    matrixSource,
+    loading,
+    error,
+  } = useRoutePlan(
+    sensors,
+    definedRoute?.sensorIds ?? EMPTY_ROUTE_SENSOR_IDS,
+    definedRoute?.sensorIds ?? manualOrder ?? undefined,
+  );
+
+  useEffect(() => {
+    void routeApi
+      .active()
+      .then((route) => {
+        setDefinedRoute(route);
+        setManualOrder(route?.sensorIds ?? null);
+        if (route) update({ base: route.base });
+      })
+      .catch(() => setDefinedRoute(null));
+  }, [update]);
+
+  async function deferSensor(sensorId: number) {
+    await sensorsApi.defer(sensorId);
+    await reloadSensors();
+    setManualOrder(
+      (current) => current?.filter((id) => id !== sensorId) ?? null,
+    );
+  }
+
+  function includeSensor(sensorId: number) {
+    setManualOrder((current) => [
+      ...(current ?? plan?.stops.map((stop) => stop.id) ?? []),
+      sensorId,
+    ]);
+    setLeftOutPage(0);
+  }
+
+  function moveStop(from: number, to: number) {
+    if (!plan || to < 0 || to >= plan.stops.length) return;
+    const order = plan.stops.map((stop) => stop.id);
+    const [moved] = order.splice(from, 1);
+    if (moved !== undefined) order.splice(to, 0, moved);
+    setManualOrder(order);
+  }
+
+  function activateAutomaticCalculation() {
+    setManualOrder(null);
+  }
+
+  async function defineRoute() {
+    if (!plan) return;
+    setRouteActionError(null);
+    try {
+      if (!settings.base) return;
+      const route = await routeApi.define(
+        plan.stops.map((stop) => stop.id),
+        settings.base,
+      );
+      if (route) setDefinedRoute(route);
+    } catch (err) {
+      setRouteActionError(
+        err instanceof Error ? err.message : "Não foi possível definir a rota.",
+      );
+    }
+  }
+
+  async function completeRoute() {
+    if (!definedRoute) return;
+    setRouteActionError(null);
+    try {
+      await routeApi.complete(definedRoute.id);
+      setDefinedRoute(null);
+      setManualOrder(null);
+      await reloadSensors();
+    } catch (err) {
+      setRouteActionError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível concluir a rota.",
+      );
+    }
+  }
+
+  function mapsUrl() {
+    if (!definedRoute || !settings.base) return "#";
+    const points = definedRoute.sensorIds
+      .map((id) => candidates.find((candidate) => candidate.id === id)?.point)
+      .filter((point): point is { latitude: number; longitude: number } =>
+        Boolean(point),
+      );
+    const destination = points.at(-1) ?? settings.base;
+    const waypoints = points
+      .slice(0, -1)
+      .map((point) => `${point.latitude},${point.longitude}`)
+      .join("|");
+    const params = new URLSearchParams({
+      api: "1",
+      origin: `${settings.base.latitude},${settings.base.longitude}`,
+      destination: `${destination.latitude},${destination.longitude}`,
+      travelmode: "driving",
+    });
+    if (waypoints) params.set("waypoints", waypoints);
+    return `https://www.google.com/maps/dir/?${params.toString()}`;
+  }
 
   const pointById = useMemo(
     () =>
       new Map(candidates.map((candidate) => [candidate.id, candidate.point])),
     [candidates],
   );
+  const nameById = useMemo(
+    () =>
+      new Map(candidates.map((candidate) => [candidate.id, candidate.name])),
+    [candidates],
+  );
+  const sensorById = useMemo(
+    () => new Map(sensors.map((sensor) => [sensor.id, sensor])),
+    [sensors],
+  );
+
+  function mapDetails(id: number) {
+    const sensor = sensorById.get(id);
+    const candidate = candidates.find((item) => item.id === id);
+    return {
+      status: sensor ? (sensor.active ? "Ativo" : "Offline") : undefined,
+      reading: sensor
+        ? sensor.type === "proxy"
+          ? nivelFromValue(sensor.lastMeasurement?.value)
+          : (getNivel(sensor) ?? nivelFromValue(null))
+        : undefined,
+      daysDetecting: candidate?.daysDetecting,
+      estimatedHeight: candidate?.estimatedHeight,
+    };
+  }
 
   const mapStops = useMemo(
     () =>
       (plan?.stops ?? []).flatMap((stop) => {
         const point = pointById.get(stop.id);
-        return point ? [{ id: stop.id, point }] : [];
+        return point
+          ? [
+              {
+                id: stop.id,
+                name: nameById.get(stop.id),
+                point,
+                ...mapDetails(stop.id),
+              },
+            ]
+          : [];
       }),
-    [plan, pointById],
+    [plan, pointById, nameById, sensorById, candidates],
   );
 
   // Sem plano ainda (base não definida), todos os candidatos entram como "fora
@@ -42,16 +194,25 @@ export function RoutePage() {
   // em vez de num centro arbitrário, antes de a equipe marcar a base.
   const mapLeftOut = useMemo(
     () =>
-      (plan?.leftOut ?? candidates).flatMap((item) => {
-        const point = pointById.get(item.id);
-        return point ? [{ id: item.id, point }] : [];
-      }),
-    [plan, candidates, pointById],
+      candidates
+        .filter(
+          (candidate) => !plan?.stops.some((stop) => stop.id === candidate.id),
+        )
+        .flatMap((item) => {
+          const point = pointById.get(item.id);
+          return point
+            ? [
+                {
+                  id: item.id,
+                  name: nameById.get(item.id),
+                  point,
+                  ...mapDetails(item.id),
+                },
+              ]
+            : [];
+        }),
+    [plan, candidates, pointById, nameById, sensorById],
   );
-
-  const slackSeconds = plan
-    ? settings.workdayHours * 3600 - plan.totalSeconds
-    : 0;
 
   return (
     <main className="flex-1 overflow-x-hidden">
@@ -63,6 +224,7 @@ export function RoutePage() {
         </Alert>
       )}
       {error && <Alert tone="error">{error}</Alert>}
+      {routeActionError && <Alert tone="error">{routeActionError}</Alert>}
 
       {matrixSource === "haversine" && (
         <Alert tone="info">
@@ -80,50 +242,30 @@ export function RoutePage() {
         </Alert>
       )}
 
-      <div className="grid grid-cols-2 gap-4 p-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 p-4 lg:grid-cols-3">
         <Card
           title="Paradas"
-          info={plan ? plan.stops.length : "—"}
+          info={plan ? plan.stops.length : "0"}
           hint={`de ${candidates.length} trecho(s) pedindo roçada`}
           icon={MapPinned}
           titleClassName="text-black dark:text-white"
           infoClassName="text-black dark:text-white"
         />
         <Card
-          title="Deslocamento"
-          info={plan ? formatDuration(plan.travelSeconds) : "—"}
-          hint="ida, entre pontos e volta"
+          title="Deslocamento total"
+          info={plan ? formatDuration(plan.travelSeconds) : "0km"}
+          hint="Tempo total de todo o percurso"
           icon={Route}
           titleClassName="text-[#5e22f3] dark:text-[#8f61ff]"
           infoClassName="text-[#5e22f3] dark:text-[#8f61ff]"
         />
         <Card
-          title="Roçada"
-          info={plan ? formatDuration(plan.serviceSeconds) : "—"}
+          title="Tempo de roçada"
+          info={plan ? formatDuration(plan.serviceSeconds) : "0min"}
           hint={`${settings.serviceMinutes} min por ponto`}
           icon={Clock}
           titleClassName="text-green-700 dark:text-green-500"
           infoClassName="text-green-700 dark:text-green-500"
-        />
-        <Card
-          title={slackSeconds < 0 ? "Hora extra" : "Folga"}
-          info={plan ? formatDuration(Math.abs(slackSeconds)) : "—"}
-          hint={
-            plan
-              ? `volta à base ${addMinutesToClock(settings.departure, plan.totalSeconds / 60)}`
-              : "—"
-          }
-          icon={TriangleAlert}
-          titleClassName={
-            slackSeconds < 0
-              ? "text-red-700 dark:text-red-400"
-              : "text-amber-600 dark:text-amber-400"
-          }
-          infoClassName={
-            slackSeconds < 0
-              ? "text-red-700 dark:text-red-400"
-              : "text-amber-600 dark:text-amber-400"
-          }
         />
       </div>
 
@@ -134,27 +276,79 @@ export function RoutePage() {
         >
           <RouteMap
             base={settings.base}
+            geometry={geometry}
             stops={mapStops}
             leftOut={mapLeftOut}
-            onPickBase={(latitude, longitude) =>
-              update({ base: { latitude, longitude } })
+            onPickBase={
+              definedRoute
+                ? undefined
+                : (latitude, longitude) =>
+                    update({ base: { latitude, longitude } })
             }
           />
         </Panel>
 
         <div className="flex flex-col gap-4">
-          <Panel title="Parâmetros" description="Salvos neste navegador.">
-            <RouteSettingsForm settings={settings} onChange={update} />
+          <Panel title="Parâmetros">
+            <RouteSettingsForm
+              settings={settings}
+              onChange={update}
+              locked={Boolean(definedRoute)}
+            />
           </Panel>
 
           <Panel
             title="Ordem de visita"
-            description="Escolhida por prioridade e tempo de deslocamento."
+            description={
+              definedRoute
+                ? "Rota definida e reservada para esta equipe."
+                : manualOrder
+                  ? "Ordem ajustada manualmente."
+                  : "Escolhida automaticamente por proximidade, prioridade e tempo de deslocamento."
+            }
             actions={
               loading || loadingSensors ? (
                 <span className="text-xs text-gray-500 dark:text-gray-300">
                   calculando…
                 </span>
+              ) : definedRoute ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <a
+                    href={mapsUrl()}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex cursor-pointer items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-600"
+                  >
+                    <ExternalLink size={15} />
+                    Abrir no Maps
+                  </a>
+                  <button
+                    type="button"
+                    onClick={completeRoute}
+                    className="cursor-pointer rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700"
+                  >
+                    Marcar como concluída
+                  </button>
+                </div>
+              ) : plan ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  {manualOrder && (
+                    <button
+                      type="button"
+                      onClick={activateAutomaticCalculation}
+                      className="cursor-pointer rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-600"
+                    >
+                      Ativar cálculo automático
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={defineRoute}
+                    className="cursor-pointer rounded-lg bg-[#6126F1] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#4107d4]"
+                  >
+                    Definir rota
+                  </button>
+                </div>
               ) : undefined
             }
           >
@@ -171,6 +365,9 @@ export function RoutePage() {
                 plan={plan}
                 candidates={candidates}
                 departure={settings.departure}
+                onDefer={deferSensor}
+                allowDefer={!definedRoute}
+                onMove={!definedRoute ? moveStop : undefined}
               />
             ) : (
               <p className="py-6 text-center text-sm text-gray-500 dark:text-gray-300">
@@ -188,20 +385,66 @@ export function RoutePage() {
             description="Trechos pedindo roçada que não entraram neste roteiro, do mais urgente ao menos."
           >
             <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-4">
-              {plan.leftOut.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-600"
-                >
-                  <span className="truncate font-medium text-gray-800 dark:text-white">
-                    {item.id}
-                  </span>
-                  <span className="text-xs whitespace-nowrap text-gray-500 dark:text-gray-300">
-                    {item.score - 1} dia(s)
-                  </span>
-                </div>
-              ))}
+              {plan.leftOut
+                .slice(leftOutPage * 20, leftOutPage * 20 + 20)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-600"
+                  >
+                    <span className="truncate font-medium text-gray-800 dark:text-white">
+                      {nameById.get(item.id) || item.id}
+                    </span>
+                    <span className="text-xs whitespace-nowrap text-gray-500 dark:text-gray-300">
+                      {item.score - 1} dia(s)
+                    </span>
+                    {!definedRoute && (
+                      <button
+                        type="button"
+                        onClick={() => includeSensor(item.id)}
+                        className="cursor-pointer rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-white dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-700"
+                      >
+                        Incluir
+                      </button>
+                    )}
+                  </div>
+                ))}
             </div>
+            {plan.leftOut.length > 20 && (
+              <div className="mt-4 flex items-center justify-end gap-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLeftOutPage((page) => Math.max(0, page - 1))
+                  }
+                  disabled={leftOutPage === 0}
+                  className="rounded border px-2 py-1 disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <span className="text-gray-500">
+                  Página {leftOutPage + 1} de{" "}
+                  {Math.ceil(plan.leftOut.length / 20)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setLeftOutPage((page) =>
+                      Math.min(
+                        Math.ceil(plan.leftOut.length / 20) - 1,
+                        page + 1,
+                      ),
+                    )
+                  }
+                  disabled={
+                    leftOutPage === Math.ceil(plan.leftOut.length / 20) - 1
+                  }
+                  className="rounded border px-2 py-1 disabled:opacity-40"
+                >
+                  Próxima
+                </button>
+              </div>
+            )}
           </Panel>
         </div>
       )}

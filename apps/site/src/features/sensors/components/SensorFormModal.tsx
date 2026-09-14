@@ -119,10 +119,9 @@ export function SensorFormModal({
           </div>
           {!isProxy && (
             <Field
-              label="proxy_id"
+              label="Id do proxy responsável"
               value={form.proxy_id}
               onValueChange={(v) => update("proxy_id", v)}
-              hint="Id do proxy responsável por este sensor."
             />
           )}
         </div>

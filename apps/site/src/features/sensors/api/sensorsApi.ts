@@ -8,6 +8,8 @@ import type {
   SensorDetail,
   SensorFilters,
   SensorInput,
+  SensorPageQuery,
+  SensorPageResult,
   SensorSummary,
 } from "@/types/sensor";
 
@@ -26,11 +28,43 @@ export const sensorsApi = {
       })}`,
     ),
 
+  listPage: (filters: SensorPageQuery) =>
+    request<SensorPageResult>(`/api/sensors/page${toQuery({ ...filters })}`),
+
+  history: (measurements = 200) =>
+    request<SensorDetail[]>(`/api/sensors/history${toQuery({ measurements })}`),
+
+  readingsSummary: (days?: number | null, page = 1, limit = 50) =>
+    request<{
+      bySensor: {
+        name: string;
+        Alto: number;
+        Baixo: number;
+        "Sem leitura": number;
+        total: number;
+      }[];
+      byDay: { day: string; total: number; high: number }[];
+      page: number;
+      limit: number;
+      totalSensors: number;
+      totalPages: number;
+    }>(
+      `/api/sensors/readings-summary${toQuery({ days: days ?? undefined, page, limit })}`,
+    ),
+
+  defer: (sensorId: number) =>
+    request<void>(`/api/sensors/${sensorId}/defer`, { method: "POST" }),
+
   get: (sensorId: number, measurements = DEFAULT_HISTORY_SIZE) =>
-    request<SensorDetail>(`/api/sensors/${id(sensorId)}${toQuery({ measurements })}`),
+    request<SensorDetail>(
+      `/api/sensors/${id(sensorId)}${toQuery({ measurements })}`,
+    ),
 
   create: (sensorId: number, data: SensorInput) =>
-    request<null>(`/api/sensors/${id(sensorId)}`, { method: "POST", body: data }),
+    request<null>(`/api/sensors/${id(sensorId)}`, {
+      method: "POST",
+      body: data,
+    }),
 
   update: (sensorId: number, data: SensorInput) =>
     request<SensorSummary>(`/api/sensors/${id(sensorId)}`, {
@@ -61,7 +95,8 @@ export const sensorsApi = {
   createProxy: (proxyId: number, data: SensorInput) =>
     request<null>(`/api/proxy/${id(proxyId)}`, { method: "POST", body: data }),
 
-  getProxy: (proxyId: number) => request<ProxyDetail>(`/api/proxy/${id(proxyId)}`),
+  getProxy: (proxyId: number) =>
+    request<ProxyDetail>(`/api/proxy/${id(proxyId)}`),
 
   removeProxy: (proxyId: number) =>
     request<null>(`/api/proxy/${id(proxyId)}`, { method: "DELETE" }),

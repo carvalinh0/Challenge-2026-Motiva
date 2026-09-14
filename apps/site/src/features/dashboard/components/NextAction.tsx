@@ -18,15 +18,10 @@ export function NextAction({ sensors }: { sensors: SensorSummary[] }) {
   }
 
   const { estimate } = urgent;
-  const isHigh = estimate.level === "Alto";
 
   return (
     <div className="flex flex-col items-center text-center">
-      <p className={`text-xl font-bold ${isHigh ? "text-red-600" : "text-yellow-500"}`}>
-        {isHigh ? "Programar roçada" : "Planejar roçada"}
-      </p>
-
-      <p className="mt-3 font-bold text-gray-800 dark:text-white">{urgent.id}</p>
+      <p className="mt-3 font-bold text-gray-800 dark:text-white">{urgent.name}</p>
 
       {estimate.estimatedHeight !== null && (
         <p className="mt-1 text-gray-600 dark:text-gray-300">

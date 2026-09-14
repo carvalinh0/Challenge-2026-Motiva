@@ -43,9 +43,12 @@ export function SensorTable({
         <thead className="border-b border-gray-200 text-gray-600 dark:border-gray-600 dark:text-gray-300">
           <tr>
             <th className="p-2">Id</th>
+            <th className="p-2">Nome</th>
             <th className="p-2">Tipo</th>
+            <th className="p-2">Status</th>
             <th className="p-2">Última leitura</th>
-            <th className="p-2">Quando</th>
+            <th className="p-2">Momento da última leitura</th>
+            <th className="p-2">Criado em</th>
             <th className="p-2 text-right">Ações</th>
           </tr>
         </thead>
@@ -65,6 +68,7 @@ export function SensorTable({
                 className="border-b border-gray-100 dark:border-gray-600"
               >
                 <td className="p-2 font-medium">{sensor.id}</td>
+                <td className="p-2">{sensor.name || "—"}</td>
                 <td className="p-2">
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
@@ -74,6 +78,17 @@ export function SensorTable({
                     }`}
                   >
                     {sensor.type}
+                  </span>
+                </td>
+                <td className="p-2">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs ${
+                      sensor.active
+                        ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-300"
+                        : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"
+                    }`}
+                  >
+                    {sensor.active ? "Ativo" : "Offline"}
                   </span>
                 </td>
                 <td className="p-2">
@@ -87,38 +102,27 @@ export function SensorTable({
                 <td className="p-2 tabular-nums text-gray-500 dark:text-gray-300">
                   {formatTimestamp(sensor.lastMeasurement?.timestamp)}
                 </td>
+                <td className="p-2 tabular-nums text-gray-500 dark:text-gray-300">
+                  {formatTimestamp(sensor.createdAt)}
+                </td>
                 <td className="p-2">
                   <div className="flex justify-end gap-1">
                     <SensorActionButton
-                      title="Medir agora (mesh)"
+                      title="Realizar medição"
                       icon={Ruler}
                       loading={busy === "measure"}
                       disabled={Boolean(busy)}
                       onClick={() => onMeasure(sensor)}
                     />
                     <SensorActionButton
-<<<<<<< HEAD
-                      title="Healthcheck (mesh)"
-=======
-                      title={
-                        withoutNode
-                          ? "Precisa de node_id"
-                          : "Healthcheck (mesh)"
-                      }
->>>>>>> 2dd1a17 (começando filtro e ajustando interface responsiva)
+                      title="Verificar funcionamento"
                       icon={Activity}
                       loading={busy === "health"}
                       disabled={Boolean(busy)}
                       onClick={() => onHealthcheck(sensor)}
                     />
                     <SensorActionButton
-<<<<<<< HEAD
-                      title="Calibrar (mesh)"
-=======
-                      title={
-                        withoutNode ? "Precisa de node_id" : "Calibrar (mesh)"
-                      }
->>>>>>> 2dd1a17 (começando filtro e ajustando interface responsiva)
+                      title="Reajustar janela de leitura do sensor"
                       icon={Crosshair}
                       loading={busy === "calibrate"}
                       disabled={Boolean(busy)}
@@ -131,7 +135,7 @@ export function SensorTable({
                       onClick={() => onEdit(sensor)}
                     />
                     <SensorActionButton
-                      title="Resetar (apaga medições)"
+                      title="Resetar"
                       icon={RotateCcw}
                       loading={busy === "reset"}
                       disabled={Boolean(busy)}

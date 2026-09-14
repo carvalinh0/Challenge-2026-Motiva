@@ -7,11 +7,17 @@ import type { ApiResponse } from "@/types/api";
 
 export class ApiError extends Error {
   readonly status: number;
+  readonly retryAfterSeconds: number | null;
 
-  constructor(message: string, status: number) {
+  constructor(
+    message: string,
+    status: number,
+    retryAfterSeconds: number | null = null,
+  ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
   }
 
   /** 401/403 = sessão inválida ou expirada; quem chama derruba o login. */
@@ -84,14 +90,23 @@ export async function request<T>(
       payload && payload.status === "error"
         ? payload.message
         : `Erro ${response.status}`;
-    throw new ApiError(message, response.status);
+    const retryAfter = Number(response.headers.get("Retry-After"));
+    throw new ApiError(
+      message,
+      response.status,
+      Number.isFinite(retryAfter) ? retryAfter : null,
+    );
   }
 
-  return payload && payload.status === "success" ? (payload.data ?? null) : null;
+  return payload && payload.status === "success"
+    ? (payload.data ?? null)
+    : null;
 }
 
 /** Monta uma query string ignorando valores vazios/indefinidos. */
-export function toQuery(params: Record<string, string | number | boolean | undefined>): string {
+export function toQuery(
+  params: Record<string, string | number | boolean | undefined>,
+): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === "" || value === false) continue;

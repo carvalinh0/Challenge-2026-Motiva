@@ -10,7 +10,7 @@ const MAX_EVENTS = 12;
 // Intervalo mínimo entre recargas disparadas pelo SSE. Sem isso, uma rajada de
 // medições (resposta de um broadcast, com todos os nós respondendo quase
 // juntos) vira uma requisição por evento.
-const RELOAD_THROTTLE_MS = 3000;
+const RELOAD_THROTTLE_MS = 15000;
 
 export interface MeshEvent extends MeshResult {
   receivedAt: number;
@@ -25,6 +25,8 @@ export function useDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [events, setEvents] = useState<MeshEvent[]>([]);
   const lastReload = useRef(0);
+  const rateLimitUntil = useRef(0);
+  const reloadInFlight = useRef<Promise<void> | null>(null);
 
   const handleError = useCallback(
     (err: unknown) => {
@@ -42,11 +44,23 @@ export function useDashboard() {
   // Chamada por handlers de clique e pelo callback do SSE — contextos em que
   // setState é livre. A carga inicial roda inline no efeito abaixo.
   const reload = useCallback(async () => {
-    try {
-      apply(await dashboardApi.overview());
-    } catch (err) {
-      handleError(err);
-    }
+    if (Date.now() < rateLimitUntil.current) return;
+    if (reloadInFlight.current) return reloadInFlight.current;
+
+    reloadInFlight.current = (async () => {
+      try {
+        apply(await dashboardApi.overview());
+      } catch (err) {
+        if (err instanceof ApiError && err.isRateLimited) {
+          rateLimitUntil.current =
+            Date.now() + (err.retryAfterSeconds ?? 60) * 1000;
+        }
+        handleError(err);
+      } finally {
+        reloadInFlight.current = null;
+      }
+    })();
+    return reloadInFlight.current;
   }, [apply, handleError]);
 
   useEffect(() => {
@@ -56,6 +70,10 @@ export function useDashboard() {
         const data = await dashboardApi.overview();
         if (!cancelled) apply(data);
       } catch (err) {
+        if (err instanceof ApiError && err.isRateLimited) {
+          rateLimitUntil.current =
+            Date.now() + (err.retryAfterSeconds ?? 60) * 1000;
+        }
         if (!cancelled) handleError(err);
       } finally {
         if (!cancelled) setLoading(false);
@@ -103,6 +121,6 @@ export function computeDashboardStats(sensors: SensorSummary[]) {
     proxies,
     altos: sensorNodes.filter((s) => getNivel(s) === NIVEL.ALTO).length,
     baixos: sensorNodes.filter((s) => getNivel(s) === NIVEL.BAIXO).length,
-    perdidos: sensors.filter((s) => !s.active).length,
+    offline: sensors.filter((s) => !s.active).length,
   };
 }

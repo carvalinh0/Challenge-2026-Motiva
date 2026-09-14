@@ -5,6 +5,7 @@ import { sensorsApi } from "../api/sensorsApi";
 import { nivelFromValue } from "@/utils/sensorStatus";
 import type { SensorSummary } from "@/types/sensor";
 import type { FeedbackMessage, SensorAction } from "../types";
+import type { SensorConfirmationAction } from "../components/SensorConfirmationModal";
 
 /**
  * Ações por nó (mesh e CRUD). Centraliza o padrão comum: marcar qual ação
@@ -15,6 +16,10 @@ export function useSensorActions(reload: () => Promise<void>) {
   const { logout } = useAuth();
   const [running, setRunning] = useState<Record<string, SensorAction>>({});
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
+  const [confirmation, setConfirmation] = useState<{
+    action: SensorConfirmationAction;
+    sensor: SensorSummary;
+  } | null>(null);
 
   const run = useCallback(
     async <T>(
@@ -65,44 +70,42 @@ export function useSensorActions(reload: () => Promise<void>) {
         sensor.id,
         "health",
         () => sensorsApi.healthcheck(sensor.id),
-        (result) => `${sensor.id} está ${result?.alive ? "vivo" : "sem resposta"}.`,
+        (result) =>
+          `${sensor.id} está ${result?.alive ? "vivo" : "sem resposta"}.`,
       ),
     [run],
   );
 
   const calibrate = useCallback(
-    (sensor: SensorSummary) =>
-      run(
+    (sensor: SensorSummary) => setConfirmation({ action: "calibrate", sensor }),
+    [],
+  );
+
+  const remove = useCallback(
+    (sensor: SensorSummary) => setConfirmation({ action: "delete", sensor }),
+    [],
+  );
+
+  const reset = useCallback(
+    (sensor: SensorSummary) => setConfirmation({ action: "reset", sensor }),
+    [],
+  );
+
+  const confirm = useCallback(async () => {
+    if (!confirmation) return;
+    const { action, sensor } = confirmation;
+    setConfirmation(null);
+
+    if (action === "calibrate") {
+      await run(
         sensor.id,
         "calibrate",
         () => sensorsApi.calibrate(sensor.id),
         (result) =>
           `Calibração de ${sensor.id} ${result?.ok ? "concluída" : "falhou"}.`,
-      ),
-    [run],
-  );
-
-  const remove = useCallback(
-    (sensor: SensorSummary) => {
-      // Apagar é destrutivo e não tem desfazer — confirma antes.
-      if (!window.confirm(`Excluir "${sensor.id}" e todas as suas medições?`)) return;
-      return run(
-        sensor.id,
-        "delete",
-        () =>
-          sensor.type === "proxy"
-            ? sensorsApi.removeProxy(sensor.id)
-            : sensorsApi.remove(sensor.id),
-        () => `"${sensor.id}" excluído.`,
       );
-    },
-    [run],
-  );
-
-  const reset = useCallback(
-    (sensor: SensorSummary) => {
-      if (!window.confirm(`Resetar "${sensor.id}"? As medições serão apagadas.`)) return;
-      return run(
+    } else if (action === "reset") {
+      await run(
         sensor.id,
         "reset",
         () =>
@@ -111,9 +114,18 @@ export function useSensorActions(reload: () => Promise<void>) {
             : sensorsApi.reset(sensor.id),
         () => `"${sensor.id}" resetado.`,
       );
-    },
-    [run],
-  );
+    } else {
+      await run(
+        sensor.id,
+        "delete",
+        () =>
+          sensor.type === "proxy"
+            ? sensorsApi.removeProxy(sensor.id)
+            : sensorsApi.remove(sensor.id),
+        () => `"${sensor.id}" excluído.`,
+      );
+    }
+  }, [confirmation, run]);
 
   return {
     running,
@@ -124,5 +136,8 @@ export function useSensorActions(reload: () => Promise<void>) {
     calibrate,
     remove,
     reset,
+    confirmation,
+    confirm,
+    cancel: () => setConfirmation(null),
   };
 }

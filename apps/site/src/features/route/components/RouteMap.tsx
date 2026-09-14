@@ -22,23 +22,35 @@ const LEFT_OUT_HEX = "#9ca3af";
 
 export interface MapPoint {
   id: number;
+  name?: string | null;
   point: GeoPoint;
+  status?: string;
+  reading?: string;
+  daysDetecting?: number;
+  estimatedHeight?: number | null;
 }
 
 interface RouteMapProps {
   base: GeoPoint | null;
+  geometry?: GeoPoint[];
   /** Paradas na ordem em que serão visitadas. */
   stops: MapPoint[];
   /** Candidatos que ficaram fora do roteiro do dia. */
   leftOut: MapPoint[];
-  onPickBase: (latitude: number, longitude: number) => void;
+  onPickBase?: (latitude: number, longitude: number) => void;
 }
 
 function tuple(point: GeoPoint): LatLngTuple {
   return [point.latitude, point.longitude];
 }
 
-export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
+export function RouteMap({
+  base,
+  geometry = [],
+  stops,
+  leftOut,
+  onPickBase,
+}: RouteMapProps) {
   const bounds = useMemo<LatLngTuple[]>(
     () =>
       [
@@ -47,16 +59,6 @@ export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
         ...leftOut.map((s) => s.point),
       ].map(tuple),
     [base, stops, leftOut],
-  );
-
-  // A rota fecha na base: sai dela e volta para ela. Sem o retorno, o desenho
-  // sugeriria que o dia acaba na última parada.
-  const line = useMemo<LatLngTuple[]>(
-    () =>
-      base && stops.length > 0
-        ? [tuple(base), ...stops.map((s) => tuple(s.point)), tuple(base)]
-        : [],
-    [base, stops],
   );
 
   const center: LatLngExpression = bounds[0] ?? [-15.78, -47.93];
@@ -71,11 +73,16 @@ export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds points={bounds} />
-      <ClickToPick onPick={onPickBase} />
+      <FitBounds points={bounds} once />
+      {onPickBase && <ClickToPick onPick={onPickBase} />}
 
-      {line.length > 0 && (
-        <Polyline positions={line} color={STOP_HEX} weight={4} opacity={0.7} />
+      {geometry.length > 0 && (
+        <Polyline
+          positions={geometry.map(tuple)}
+          color={STOP_HEX}
+          weight={4}
+          opacity={0.75}
+        />
       )}
 
       {base && (
@@ -90,7 +97,13 @@ export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
           position={tuple(item.point)}
           icon={pinIcon(LEFT_OUT_HEX)}
         >
-          <Popup>{item.id} — fora do roteiro de hoje</Popup>
+          <Popup>
+            <SensorPopup
+              item={item}
+              title={`${item.name || item.id}`}
+              description="Fora do roteiro de hoje"
+            />
+          </Popup>
         </Marker>
       ))}
 
@@ -101,10 +114,46 @@ export function RouteMap({ base, stops, leftOut, onPickBase }: RouteMapProps) {
           icon={numberedIcon(STOP_HEX, index + 1)}
         >
           <Popup>
-            {index + 1}ª parada — {stop.id}
+            <SensorPopup
+              item={stop}
+              title={`${index + 1}ª parada — ${stop.name || stop.id}`}
+              description="Incluído no roteiro de hoje"
+            />
           </Popup>
         </Marker>
       ))}
     </MapContainer>
+  );
+}
+
+function SensorPopup({
+  item,
+  title,
+  description,
+}: {
+  item: MapPoint;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="min-w-48 space-y-1 text-sm">
+      <strong className="block">{title}</strong>
+      <span className="block text-gray-500">{description}</span>
+      <span className="block">ID: {item.id}</span>
+      {item.status && <span className="block">Status: {item.status}</span>}
+      {item.reading && (
+        <span className="block">Última leitura: {item.reading}</span>
+      )}
+      {item.daysDetecting !== undefined && (
+        <span className="block">
+          Vegetação alta há {item.daysDetecting} dia(s)
+        </span>
+      )}
+      {item.estimatedHeight !== undefined && item.estimatedHeight !== null && (
+        <span className="block">
+          Altura estimada: ~{item.estimatedHeight.toFixed(0)} cm
+        </span>
+      )}
+    </div>
   );
 }

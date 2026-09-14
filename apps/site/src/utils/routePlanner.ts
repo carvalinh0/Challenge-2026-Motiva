@@ -38,6 +38,8 @@ export interface RoutePlanInput {
   workdaySeconds: number;
   /** Tempo de roçada em cada parada, em segundos. */
   serviceSeconds: number;
+  /** Ordem manual por id; quando presente, substitui a seleção automática. */
+  forcedOrder?: number[];
 }
 
 export interface RouteStop extends RouteCandidate {
@@ -85,7 +87,8 @@ function insertionCost(
   position: number,
 ): number {
   const before = position === 0 ? BASE : at(order[position - 1] as number);
-  const after = position === order.length ? BASE : at(order[position] as number);
+  const after =
+    position === order.length ? BASE : at(order[position] as number);
 
   return (
     leg(durations, before, at(candidate)) +
@@ -109,7 +112,8 @@ function selectWithinBudget(input: RoutePlanInput, target: number): number[] {
   const remaining = new Set(candidates.map((_, index) => index));
 
   while (order.length < target && remaining.size > 0) {
-    let best: { candidate: number; position: number; density: number } | null = null;
+    let best: { candidate: number; position: number; density: number } | null =
+      null;
 
     for (const candidate of remaining) {
       for (let position = 0; position <= order.length; position++) {
@@ -120,10 +124,13 @@ function selectWithinBudget(input: RoutePlanInput, target: number): number[] {
           serviceSeconds * (order.length + 1);
         if (total > workdaySeconds) continue;
 
-        // O piso de 1s evita divisão por zero em duas paradas no mesmo ponto.
+        // A distância pesa de forma progressiva: dois dias de prioridade a
+        // mais não devem justificar uma viagem muito mais longa quando há um
+        // trecho próximo disponível.
+        const travelFactor = 1 + extra / Math.max(serviceSeconds, 1);
         const density =
           (candidates[candidate] as RouteCandidate).score /
-          Math.max(extra + serviceSeconds, 1);
+          Math.max(serviceSeconds * travelFactor ** 2, 1);
 
         if (!best || density > best.density) {
           best = { candidate, position, density };
@@ -144,31 +151,40 @@ function selectWithinBudget(input: RoutePlanInput, target: number): number[] {
  * um número exato de pontos e decide sozinha sobre hora extra. O quanto passou
  * volta em `overtimeSeconds`.
  */
-function fillToTarget(input: RoutePlanInput, order: number[], target: number): number[] {
-  const { durations, candidates } = input;
-  const chosen = new Set(order);
-
-  const byScore = candidates
-    .map((candidate, index) => ({ index, score: candidate.score }))
-    .filter((item) => !chosen.has(item.index))
-    .sort((a, b) => b.score - a.score || a.index - b.index);
-
+function fillToTarget(
+  input: RoutePlanInput,
+  order: number[],
+  target: number,
+): number[] {
   const filled = [...order];
+  const remaining = new Set(
+    input.candidates
+      .map((_, index) => index)
+      .filter((index) => !filled.includes(index)),
+  );
 
-  for (const item of byScore) {
-    if (filled.length >= target) break;
-
-    let bestPosition = filled.length;
-    let bestCost = Number.POSITIVE_INFINITY;
-    for (let position = 0; position <= filled.length; position++) {
-      const cost = insertionCost(durations, filled, item.index, position);
-      if (cost < bestCost) {
-        bestCost = cost;
-        bestPosition = position;
+  while (filled.length < target && remaining.size > 0) {
+    let best: { index: number; position: number; density: number } | null =
+      null;
+    for (const index of remaining) {
+      let bestPosition = filled.length;
+      let bestCost = Number.POSITIVE_INFINITY;
+      for (let position = 0; position <= filled.length; position++) {
+        const cost = insertionCost(input.durations, filled, index, position);
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestPosition = position;
+        }
+      }
+      const travelFactor = 1 + bestCost / Math.max(input.serviceSeconds, 1);
+      const density = input.candidates[index]!.score / travelFactor ** 2;
+      if (!best || density > best.density) {
+        best = { index, position: bestPosition, density };
       }
     }
-
-    filled.splice(bestPosition, 0, item.index);
+    if (!best) break;
+    filled.splice(best.position, 0, best.index);
+    remaining.delete(best.index);
   }
 
   return filled;
@@ -187,7 +203,11 @@ function heldKarp(durations: number[][], stops: number[]): number[] {
   );
 
   for (let i = 0; i < n; i++) {
-    (cost[1 << i] as number[])[i] = leg(durations, BASE, at(stops[i] as number));
+    (cost[1 << i] as number[])[i] = leg(
+      durations,
+      BASE,
+      at(stops[i] as number),
+    );
   }
 
   for (let mask = 1; mask < size; mask++) {
@@ -200,7 +220,8 @@ function heldKarp(durations: number[][], stops: number[]): number[] {
         if ((mask & (1 << next)) !== 0) continue;
         const nextMask = mask | (1 << next);
         const value =
-          reached + leg(durations, at(stops[last] as number), at(stops[next] as number));
+          reached +
+          leg(durations, at(stops[last] as number), at(stops[next] as number));
 
         if (value < ((cost[nextMask] as number[])[next] as number)) {
           (cost[nextMask] as number[])[next] = value;
@@ -250,7 +271,10 @@ function twoOpt(durations: number[][], order: number[]): number[] {
           ...route.slice(i, j + 1).reverse(),
           ...route.slice(j + 1),
         ];
-        if (travelTimeOf(durations, candidate) < travelTimeOf(durations, route) - 1) {
+        if (
+          travelTimeOf(durations, candidate) <
+          travelTimeOf(durations, route) - 1
+        ) {
           route.splice(0, route.length, ...candidate);
           improved = true;
         }
@@ -272,11 +296,15 @@ export function planMowingRoute(input: RoutePlanInput): RoutePlan {
 
   const target = Math.max(0, Math.min(input.targetStops, candidates.length));
 
-  const withinBudget = selectWithinBudget(input, target);
-  const selected = bestOrder(
-    durations,
-    fillToTarget(input, withinBudget, target),
-  );
+  const forcedIndexes = input.forcedOrder
+    ?.map((id) => candidates.findIndex((candidate) => candidate.id === id))
+    .filter((index) => index >= 0);
+  const selected = forcedIndexes?.length
+    ? forcedIndexes
+    : bestOrder(
+        durations,
+        fillToTarget(input, selectWithinBudget(input, target), target),
+      );
 
   const stops: RouteStop[] = [];
   let clock = 0;

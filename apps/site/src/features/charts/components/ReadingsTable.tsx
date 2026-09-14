@@ -21,8 +21,11 @@ export function ReadingsTable({ data }: { data: ReadingsBySensor[] }) {
         </thead>
         <tbody className="tabular-nums text-gray-800 dark:text-gray-100">
           {data.map((row) => (
-            <tr key={row.id} className="border-b border-gray-100 dark:border-gray-600">
-              <td className="p-2 font-medium">{row.id}</td>
+            <tr
+              key={row.name}
+              className="border-b border-gray-100 dark:border-gray-600"
+            >
+              <td className="p-2 font-medium">{row.name}</td>
               <td className="p-2 text-right">{row.Alto}</td>
               <td className="p-2 text-right">{row.Baixo}</td>
               <td className="p-2 text-right">{row["Sem leitura"]}</td>

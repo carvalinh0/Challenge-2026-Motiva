@@ -4,13 +4,15 @@ import type { RouteSettings } from "../hooks/useRoutePlan";
 interface RouteSettingsFormProps {
   settings: RouteSettings;
   onChange: (patch: Partial<RouteSettings>) => void;
+  locked?: boolean;
 }
 
 const FIELD_CLASS =
   "w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-800 " +
   "dark:border-gray-500 dark:bg-gray-600 dark:text-white";
 
-const LABEL_CLASS = "block text-xs font-medium text-gray-500 dark:text-gray-300";
+const LABEL_CLASS =
+  "block text-xs font-medium text-gray-500 dark:text-gray-300";
 
 function NumberField({
   label,
@@ -46,20 +48,27 @@ function NumberField({
           const parsed = Number(event.target.value);
           // Campo vazio vira NaN; manter o valor anterior evita o formulário
           // entrar num estado inválido enquanto a pessoa digita.
-          if (Number.isFinite(parsed)) onChange(Math.min(max, Math.max(min, parsed)));
+          if (Number.isFinite(parsed))
+            onChange(Math.min(max, Math.max(min, parsed)));
         }}
       />
     </label>
   );
 }
 
-export function RouteSettingsForm({ settings, onChange }: RouteSettingsFormProps) {
+export function RouteSettingsForm({
+  settings,
+  onChange,
+  locked = false,
+}: RouteSettingsFormProps) {
   const { base } = settings;
 
   return (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
       <div className="col-span-2 lg:col-span-3">
-        <span className={LABEL_CLASS}>Base da equipe</span>
+        <span className={LABEL_CLASS}>
+          Base da equipe{locked && " (rota definida)"}
+        </span>
         <p className="mt-1 flex items-center gap-2 text-sm text-gray-800 dark:text-white">
           <MapPin size={16} className="shrink-0 text-[#6126F1]" />
           {base ? (
@@ -73,7 +82,7 @@ export function RouteSettingsForm({ settings, onChange }: RouteSettingsFormProps
       </div>
 
       <NumberField
-        label="Paradas no dia"
+        label="Roçadas no dia"
         value={settings.targetStops}
         min={1}
         max={30}
@@ -81,7 +90,7 @@ export function RouteSettingsForm({ settings, onChange }: RouteSettingsFormProps
       />
 
       <NumberField
-        label="Jornada"
+        label="Tempo de jornada"
         suffix="horas"
         value={settings.workdayHours}
         min={1}
@@ -91,7 +100,7 @@ export function RouteSettingsForm({ settings, onChange }: RouteSettingsFormProps
       />
 
       <NumberField
-        label="Roçada por ponto"
+        label="Tempo de roçada estimado por ponto"
         suffix="min"
         value={settings.serviceMinutes}
         min={5}
