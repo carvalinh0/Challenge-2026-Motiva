@@ -18,7 +18,17 @@ export function ChartsPage() {
   const [period, setPeriod] = useState<PeriodOption>(PERIOD_OPTIONS[1]!);
   const [showTable, setShowTable] = useState(false);
 
-  const { loading, error, bySensor, byDay, totalReadings } = useChartData(period);
+  const {
+    loading,
+    error,
+    bySensor,
+    byDay,
+    totalReadings,
+    page,
+    setPage,
+    totalSensors,
+    totalPages,
+  } = useChartData(period);
 
   return (
     <main className="flex-1 overflow-x-hidden">
@@ -35,7 +45,11 @@ export function ChartsPage() {
       {/* Filtro único, acima de tudo que ele afeta: os três gráficos
           re-renderizam sobre a mesma fatia. */}
       <div className="flex flex-wrap items-center gap-2 p-4 pb-0">
-        <FilterChips options={PERIOD_OPTIONS} selected={period} onSelect={setPeriod} />
+        <FilterChips
+          options={PERIOD_OPTIONS}
+          selected={period}
+          onSelect={setPeriod}
+        />
         <span className="ml-auto text-sm text-gray-500 dark:text-gray-300">
           {loading ? "Carregando..." : `${totalReadings} leitura(s) no período`}
         </span>
@@ -45,7 +59,10 @@ export function ChartsPage() {
 
       {!loading && totalReadings === 0 && !error && (
         <div className="m-4 rounded-lg bg-white p-8 text-center shadow-lg dark:bg-gray-700">
-          <RefreshCw size={28} className="mx-auto mb-2 text-gray-400 dark:text-gray-300" />
+          <RefreshCw
+            size={28}
+            className="mx-auto mb-2 text-gray-400 dark:text-gray-300"
+          />
           <p className="font-medium text-gray-700 dark:text-white">
             Nenhuma medição no período
           </p>
@@ -70,10 +87,18 @@ export function ChartsPage() {
         <div className="grid grid-cols-1 gap-4 p-4 xl:grid-cols-2">
           <Panel
             title="Leituras por sensor"
-            description="Quantas vezes cada nó reportou cada estado."
+            description="Quantas vezes cada sensor reportou cada estado."
             className="xl:col-span-2"
           >
-            <ReadingsBySensorChart data={bySensor} />
+            <div className="max-h-[32rem] overflow-y-auto pr-2">
+              <ReadingsBySensorChart
+                data={bySensor}
+                page={page}
+                totalPages={totalPages}
+                totalSensors={totalSensors}
+                onPageChange={setPage}
+              />
+            </div>
           </Panel>
 
           <Panel
@@ -84,8 +109,8 @@ export function ChartsPage() {
           </Panel>
 
           <Panel
-            title="Volume de leituras por dia"
-            description="Quantas medições a mesh entregou — queda aqui é sinal de nó mudo."
+            title="Total de leituras recebidas por dia"
+            description="Quantas medições foram recebidas"
           >
             <ReadingVolumeChart data={byDay} />
           </Panel>

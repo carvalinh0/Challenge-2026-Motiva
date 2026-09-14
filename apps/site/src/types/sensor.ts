@@ -32,13 +32,17 @@ export interface SensorSummary {
    * permitia o cadastro apontar para um rádio diferente do real.
    */
   id: number;
+  name: string | null;
   latitude: number | null;
   longitude: number | null;
   type: SensorType;
+  createdAt: number;
   /** Epoch ms da última vez que o nó deu notícia; null se nunca reportou. */
   last_seen: number | null;
   /** `last_seen` dentro da janela de atividade (SENSOR_ACTIVE_WINDOW_MS na API). */
   active: boolean;
+  deferred: boolean;
+  routeAssigned: boolean;
   lastMeasurement: Measurement | null;
   /**
    * Dias seguidos reportando acima do limite. É a prioridade de roçada, e a
@@ -50,6 +54,7 @@ export interface SensorSummary {
 /** Resposta de `GET /api/sensors/:id`, com histórico. */
 export interface SensorDetail {
   id: number;
+  name: string | null;
   latitude: number | null;
   longitude: number | null;
   type: SensorType;
@@ -110,6 +115,25 @@ export interface SensorFilters {
   closeTo?: string;
   /** km; só tem efeito junto com closeTo. */
   radius?: number;
+}
+
+export interface SensorPageQuery {
+  page: number;
+  limit: number;
+  type?: SensorType;
+  name?: string;
+  active?: boolean;
+  lost?: boolean;
+  createdFrom?: string;
+  createdTo?: string;
+}
+
+export interface SensorPageResult {
+  items: SensorSummary[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }
 
 // --- Roteiro de roçada ---

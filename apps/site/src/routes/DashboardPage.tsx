@@ -15,14 +15,12 @@ import { PageHeader } from "@/components/PageHeader";
 import { Panel } from "@/components/Panel";
 import { ApiError } from "@/lib/httpClient";
 import { useAuth } from "@/features/auth";
-import { getNivel, NIVEL } from "@/utils/sensorStatus";
 import {
   MeshLiveFeed,
   NextAction,
   PrioritySensors,
   SensorMap,
   StatusDonut,
-  StatusFilter,
   computeDashboardStats,
   dashboardApi,
   useDashboard,
@@ -30,38 +28,17 @@ import {
 import type { FeedbackMessage } from "@/features/sensors";
 
 type BroadcastKind = "health" | "measure";
-type FilterableNivel = typeof NIVEL.ALTO | typeof NIVEL.BAIXO;
-
 export function DashboardPage() {
   const { logout } = useAuth();
-  const { sensors, loading, error, events, stats, reload } = useDashboard();
-
+  const { sensors, loading, error, events, reload } = useDashboard();
   const [broadcast, setBroadcast] = useState<BroadcastKind | null>(null);
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
-
-  // ↓ NOVO: estado do filtro de status e do sensor selecionado no mapa
-  const [statusFilter, setStatusFilter] = useState<FilterableNivel | null>(
-    null,
-  );
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null);
-
-  // ↓ NOVO: lista filtrada, e stats recalculado em cima dela
-  const filteredSensors = useMemo(() => {
-    if (!statusFilter) return sensors;
-    return sensors.filter((s) => getNivel(s) === statusFilter);
-  }, [sensors, statusFilter]);
-
+  const filteredSensors = sensors;
   const filteredStats = useMemo(
     () => computeDashboardStats(filteredSensors),
     [filteredSensors],
   );
-
-  // ↓ NOVO: troca o filtro e limpa a seleção do mapa (evita focar um sensor
-  // que sumiu da lista filtrada)
-  function handleFilterChange(value: FilterableNivel | null) {
-    setStatusFilter(value);
-    setSelectedSensorId(null);
-  }
 
   async function runBroadcast(kind: BroadcastKind) {
     setBroadcast(kind);
@@ -89,7 +66,9 @@ export function DashboardPage() {
             // Nó ocupado não é nó mudo: ele respondeu recusando porque já
             // estava varrendo. Sem essa distinção o operador acharia que o nó
             // caiu e iria até lá à toa.
-            (busy > 0 ? ` ${busy} estava(m) ocupado(s) com outra varredura.` : ""),
+            (busy > 0
+              ? ` ${busy} estava(m) ocupado(s) com outra varredura.`
+              : ""),
         });
       }
       await reload();
@@ -155,9 +134,6 @@ export function DashboardPage() {
         </Alert>
       )}
 
-      {/* ↓ NOVO: botões de filtro */}
-      <StatusFilter value={statusFilter} onChange={handleFilterChange} />
-
       <div className="grid grid-cols-2 gap-4 p-4 lg:grid-cols-5">
         <Card
           title="Sensores"
@@ -170,6 +146,7 @@ export function DashboardPage() {
           title="Proxys"
           info={loading ? "…" : filteredStats.proxies.length}
           icon={Wifi}
+          hint=""
           titleClassName="text-[#5e22f3] dark:text-[#8f61ff]"
           infoClassName="text-[#5e22f3] dark:text-[#8f61ff]"
         />
@@ -190,8 +167,8 @@ export function DashboardPage() {
           infoClassName="text-green-700 dark:text-green-500"
         />
         <Card
-          title="Perdidos"
-          info={loading ? "…" : filteredStats.perdidos}
+          title="Offline"
+          info={loading ? "…" : filteredStats.offline}
           hint="Sem notícia há 48h"
           icon={RefreshCw}
           titleClassName="text-amber-600 dark:text-amber-400"
@@ -218,8 +195,8 @@ export function DashboardPage() {
           </Panel>
 
           <Panel
-            title="Próxima ação"
-            description="Altura estimada a partir de há quanto tempo o nó detecta vegetação."
+            title="Próxima roçada"
+            description="Local de maior prioridade para a próxima roçada."
           >
             <NextAction sensors={filteredSensors} />
           </Panel>
@@ -229,7 +206,7 @@ export function DashboardPage() {
       <div className="p-4 pt-0">
         <Panel
           title="Trechos por prioridade"
-          description="Sensores que estão detectando vegetação, do mais urgente ao menos."
+          description="Sensores que estão detectando vegetação acima do limite, do mais urgente ao menos."
         >
           <PrioritySensors
             sensors={filteredSensors}
@@ -241,8 +218,7 @@ export function DashboardPage() {
 
       <div className="p-4 pt-0">
         <Panel
-          title="Mesh ao vivo"
-          description="Respostas chegando por SSE, inclusive as que ninguém pediu."
+          title="Rede ao vivo"
           actions={
             <span className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-300">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500" />

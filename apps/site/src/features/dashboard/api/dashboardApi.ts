@@ -13,7 +13,8 @@ export const dashboardApi = {
    * sensor, então não é preciso uma segunda com ?active=true só para saber
    * quem está perdido.
    */
-  overview: async (): Promise<SensorSummary[]> => (await sensorsApi.list()) ?? [],
+  overview: async (): Promise<SensorSummary[]> =>
+    (await sensorsApi.list()) ?? [],
 
   /** Healthcheck em broadcast: janela de ~30s enquanto os nós respondem. */
   healthBroadcast: () =>
@@ -21,9 +22,12 @@ export const dashboardApi = {
 
   /** Medição em broadcast: mesma ideia, mas pedindo MEASURE. */
   measurementBroadcast: () =>
-    request<{ measurements: MeshNodeMeasurement[] }>("/api/measurements/broadcast", {
-      method: "POST",
-    }),
+    request<{ measurements: MeshNodeMeasurement[] }>(
+      "/api/measurements/broadcast",
+      {
+        method: "POST",
+      },
+    ),
 };
 
 /**
@@ -50,7 +54,13 @@ export function subscribeToMeshEvents(
     }
   };
 
-  if (onError) source.onerror = onError;
+  source.onerror = (event) => {
+    onError?.(event);
+    // EventSource retries automatically. Em uma API limitada por IP, uma
+    // conexão rejeitada poderia virar um novo loop de tentativas a cada poucos
+    // segundos e manter o rate limit bloqueado.
+    source.close();
+  };
 
   return () => source.close();
 }

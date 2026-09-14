@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import type { LatLngTuple } from "leaflet";
@@ -11,24 +11,44 @@ import type { LatLngTuple } from "leaflet";
  * Reenquadra sempre que o conjunto de pontos muda. Sem isso o mapa fica preso
  * no primeiro nó e os demais somem fora da viewport.
  */
-export function FitBounds({ points }: { points: LatLngTuple[] }) {
+export function FitBounds({
+  points,
+  once = false,
+}: {
+  points: LatLngTuple[];
+  once?: boolean;
+}) {
   const map = useMap();
+  const hasFitted = useRef(false);
+  const pointsKey = points
+    .map(([latitude, longitude]) => `${latitude},${longitude}`)
+    .join("|");
+  const bounds = useMemo(
+    () => (points.length > 0 ? L.latLngBounds(points) : null),
+    [pointsKey],
+  );
 
   useEffect(() => {
-    if (points.length === 0) return;
-    const first = points[0];
-    if (points.length === 1 && first) {
-      map.setView(first, 15);
+    if (!bounds) return;
+    if (once && hasFitted.current) return;
+    if (bounds.getSouthWest().equals(bounds.getNorthEast())) {
+      map.setView(bounds.getCenter(), 15);
+      hasFitted.current = true;
       return;
     }
-    map.fitBounds(L.latLngBounds(points), { padding: [40, 40], maxZoom: 16 });
-  }, [map, points]);
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+    hasFitted.current = true;
+  }, [bounds, map, once]);
 
   return null;
 }
 
 /** Chama `onPick` com a coordenada de cada clique no mapa. */
-export function ClickToPick({ onPick }: { onPick: (lat: number, lng: number) => void }) {
+export function ClickToPick({
+  onPick,
+}: {
+  onPick: (lat: number, lng: number) => void;
+}) {
   useMapEvents({
     click: (event) => onPick(event.latlng.lat, event.latlng.lng),
   });
