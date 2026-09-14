@@ -220,7 +220,7 @@ export function SensorsPage() {
 
       <div className="p-4">
         <Panel
-          title={`${filteredSensors.length} de ${total} nó(s)`}
+          title={`${filteredSensors.length} de ${total} sensores`}
           description="Ações na rede falam com os sensores de verdade e podem demorar (medição ~90s, calibração ~4min)."
         >
           {loading && sensors.length === 0 ? (
