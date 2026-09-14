@@ -4,14 +4,17 @@
 export type SensorType = "sensor" | "proxy";
 
 export interface Sensor {
-    /** NODE_ID na mesh LoRa — a identidade do nó, igual ao `#define NODE_ID` do firmware. */
-    id: number;
-    name: string | null;
-    latitude: number | null;
-    longitude: number | null;
-    type: SensorType;
-    proxyId: number | null;
-    lastSeen: Date | null;
+  /** NODE_ID na mesh LoRa — a identidade do nó, igual ao `#define NODE_ID` do firmware. */
+  id: number;
+  name: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  type: SensorType;
+  proxyId: number | null;
+  lastSeen: Date | null;
+  deferredAt: Date | null;
+  routeId: number | null;
+  createdAt: Date;
 }
 
 /** Id reservado ao proxy na mesh (MESH_PROXY_NODE_ID no firmware). */
@@ -21,7 +24,7 @@ export const PROXY_NODE_ID = 0;
 export const MAX_NODE_ID = 65535;
 
 export function isProxy(sensor: Sensor): boolean {
-    return sensor.type === "proxy";
+  return sensor.type === "proxy";
 }
 
 /**
@@ -29,36 +32,42 @@ export function isProxy(sensor: Sensor): boolean {
  * folga em cima do ciclo de deep sleep do firmware, não um conceito rígido —
  * por isso entra como parâmetro em vez de constante fixa aqui.
  */
-export function isActive(sensor: Sensor, activeWindowMs: number, now = Date.now()): boolean {
-    if (!sensor.lastSeen) return false;
-    return now - sensor.lastSeen.getTime() <= activeWindowMs;
+export function isActive(
+  sensor: Sensor,
+  activeWindowMs: number,
+  now = Date.now(),
+): boolean {
+  if (!sensor.lastSeen) return false;
+  return now - sensor.lastSeen.getTime() <= activeWindowMs;
 }
 
 const EARTH_RADIUS_KM = 6371;
 
 export function distanceKmBetween(
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number,
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
 ): number {
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos((lat1 * Math.PI) / 180) *
-            Math.cos((lat2 * Math.PI) / 180) *
-            Math.sin(dLon / 2) ** 2;
-    return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
+  return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 /** Só dá pra medir distância de quem tem coordenada cadastrada. */
 export function isWithinRadius(
-    sensor: Sensor,
-    lat: number,
-    lon: number,
-    radiusKm: number,
+  sensor: Sensor,
+  lat: number,
+  lon: number,
+  radiusKm: number,
 ): boolean {
-    if (sensor.latitude === null || sensor.longitude === null) return false;
-    return distanceKmBetween(lat, lon, sensor.latitude, sensor.longitude) <= radiusKm;
+  if (sensor.latitude === null || sensor.longitude === null) return false;
+  return (
+    distanceKmBetween(lat, lon, sensor.latitude, sensor.longitude) <= radiusKm
+  );
 }

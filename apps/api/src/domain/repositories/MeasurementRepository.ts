@@ -1,16 +1,25 @@
 import type { Measurement } from "../entities/Measurement";
 
 export interface MeasurementRepository {
-    create(sensorId: number, value: number): Promise<Measurement>;
-    /** Mais recentes primeiro. */
-    findLatestBySensor(sensorId: number, limit: number): Promise<Measurement[]>;
-    /** Atalho do caso `limit = 1`, usado na listagem de sensores. */
-    findLastBySensor(sensorId: number): Promise<Measurement | null>;
-    /**
-     * Medições de TODOS os sensores a partir de `since`. Uma consulta só, em
-     * vez de uma por sensor: a listagem precisa do histórico recente de todo
-     * mundo ao mesmo tempo para calcular a prioridade de roçada.
-     */
-    findAllSince(since: Date): Promise<Measurement[]>;
-    deleteBySensor(sensorId: number): Promise<void>;
+  create(sensorId: number, value: number): Promise<Measurement>;
+  /** Mais recentes primeiro. */
+  findLatestBySensor(sensorId: number, limit: number): Promise<Measurement[]>;
+  /** Histórico recente agrupado de todos os sensores, em uma consulta. */
+  findLatestBySensors(
+    sensorIds: number[],
+    limit: number,
+  ): Promise<Map<number, Measurement[]>>;
+  /** Atalho do caso `limit = 1`, usado na listagem de sensores. */
+  findLastBySensor(sensorId: number): Promise<Measurement | null>;
+  /**
+   * Medições de TODOS os sensores a partir de `since`. Uma consulta só, em
+   * vez de uma por sensor: a listagem precisa do histórico recente de todo
+   * mundo ao mesmo tempo para calcular a prioridade de roçada.
+   */
+  findAllSince(since: Date): Promise<Measurement[]>;
+  findAllSinceForSensors(
+    since: Date,
+    sensorIds: number[],
+  ): Promise<Measurement[]>;
+  deleteBySensor(sensorId: number): Promise<void>;
 }

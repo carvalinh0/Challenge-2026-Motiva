@@ -1,0 +1,1 @@
+ALTER TABLE "sensors" ADD COLUMN "deferred_at" DATETIME;
