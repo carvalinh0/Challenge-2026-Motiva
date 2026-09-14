@@ -1,19 +1,19 @@
 export interface GeoPoint {
-    latitude: number;
-    longitude: number;
+  latitude: number;
+  longitude: number;
 }
 
 export type RouteMatrixSource = "osrm" | "haversine";
 
 export interface RouteMatrix {
-    /** durations[i][j] = segundos para ir do ponto i ao ponto j. */
-    durations: number[][];
-    /**
-     * De onde vieram os números. O planejador mostra isso na tela: uma rota
-     * calculada com a estimativa de fallback merece menos confiança do que
-     * uma calculada sobre a malha viária real.
-     */
-    source: RouteMatrixSource;
+  /** durations[i][j] = segundos para ir do ponto i ao ponto j. */
+  durations: number[][];
+  /**
+   * De onde vieram os números. O planejador mostra isso na tela: uma rota
+   * calculada com a estimativa de fallback merece menos confiança do que
+   * uma calculada sobre a malha viária real.
+   */
+  source: RouteMatrixSource;
 }
 
 /**
@@ -22,5 +22,6 @@ export interface RouteMatrix {
  * queda para uma estimativa geométrica quando ele não responde.
  */
 export interface RouteMatrixProvider {
-    durations(points: GeoPoint[]): Promise<RouteMatrix>;
+  durations(points: GeoPoint[]): Promise<RouteMatrix>;
+  geometry(points: GeoPoint[]): Promise<GeoPoint[]>;
 }

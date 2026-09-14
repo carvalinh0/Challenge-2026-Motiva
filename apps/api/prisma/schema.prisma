@@ -21,13 +21,28 @@ model Sensor {
   // Atualizado a cada resposta da mesh (medição, healthcheck ou calibração).
   // É o que decide "ativo" vs "perdido" na listagem.
   lastSeen  DateTime? @map("last_seen")
+  deferredAt DateTime? @map("deferred_at")
+  routeId   Int?      @map("route_id")
   createdAt DateTime  @default(now()) @map("created_at")
 
   proxy        Sensor?       @relation("ProxySensors", fields: [proxyId], references: [id], onDelete: SetNull)
   sensors      Sensor[]      @relation("ProxySensors")
+  route        Route?        @relation("RouteSensors", fields: [routeId], references: [id], onDelete: SetNull)
   measurements Measurement[]
 
   @@map("sensors")
+}
+
+model Route {
+  id          Int       @id @default(autoincrement())
+  status      String    @default("defined")
+  createdBy   String
+  baseLatitude  Float   @map("base_latitude")
+  baseLongitude Float   @map("base_longitude")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  completedAt DateTime? @map("completed_at")
+  sensors     Sensor[] @relation("RouteSensors")
+  @@map("routes")
 }
 
 model Measurement {

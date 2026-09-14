@@ -1,0 +1,2 @@
+ALTER TABLE "routes" ADD COLUMN "base_latitude" REAL NOT NULL DEFAULT 0;
+ALTER TABLE "routes" ADD COLUMN "base_longitude" REAL NOT NULL DEFAULT 0;
