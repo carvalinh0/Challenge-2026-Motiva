@@ -114,8 +114,6 @@ export function useDashboard() {
 
 // fora do hook, no mesmo arquivo
 export function computeDashboardStats(sensors: SensorSummary[]) {
-  // Proxy também é um nó físico da rede e deve entrar no total de sensores.
-  // Apenas os níveis de vegetação continuam restritos aos sensores comuns.
   const sensorNodes = sensors;
   const vegetationSensors = sensors.filter((s) => s.type === "sensor");
   const proxies = sensors.filter((s) => s.type === "proxy");
