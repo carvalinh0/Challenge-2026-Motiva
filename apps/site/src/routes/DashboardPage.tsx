@@ -51,7 +51,7 @@ export function DashboardPage() {
         ).length;
         setFeedback({
           tone: "success",
-          text: `${alive} de ${result?.status?.length ?? 0} nó(s) responderam ao healthcheck.`,
+          text: `${alive} de ${result?.status?.length ?? 0} sensores estão saudáveis.`,
         });
       } else {
         const result = await dashboardApi.measurementBroadcast();
@@ -62,7 +62,7 @@ export function DashboardPage() {
         setFeedback({
           tone: "success",
           text:
-            `${answered} de ${nodes.length} nó(s) devolveram medição.` +
+            `${answered} de ${nodes.length} sensores devolveram o resultado da medição.` +
             // Nó ocupado não é nó mudo: ele respondeu recusando porque já
             // estava varrendo. Sem essa distinção o operador acharia que o nó
             // caiu e iria até lá à toa.

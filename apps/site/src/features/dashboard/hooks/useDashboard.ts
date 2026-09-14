@@ -114,13 +114,14 @@ export function useDashboard() {
 
 // fora do hook, no mesmo arquivo
 export function computeDashboardStats(sensors: SensorSummary[]) {
-  const sensorNodes = sensors.filter((s) => s.type === "sensor");
+  const sensorNodes = sensors;
+  const vegetationSensors = sensors.filter((s) => s.type === "sensor");
   const proxies = sensors.filter((s) => s.type === "proxy");
   return {
     sensorNodes,
     proxies,
-    altos: sensorNodes.filter((s) => getNivel(s) === NIVEL.ALTO).length,
-    baixos: sensorNodes.filter((s) => getNivel(s) === NIVEL.BAIXO).length,
+    altos: vegetationSensors.filter((s) => getNivel(s) === NIVEL.ALTO).length,
+    baixos: vegetationSensors.filter((s) => getNivel(s) === NIVEL.BAIXO).length,
     offline: sensors.filter((s) => !s.active).length,
   };
 }
