@@ -1,6 +1,6 @@
 # API de Sensores
 
-Bun + [Hono](https://hono.dev) + [Zod](https://zod.dev) + [Prisma](https://prisma.io) (SQLite).
+Bun + [Hono](https://hono.dev) + [Zod](https://zod.dev) + [Prisma](https://prisma.io) (PostgreSQL).
 
 ## Como rodar
 
@@ -13,7 +13,7 @@ bun run dev
 
 Scripts: `db:generate` (regera o client do Prisma), `db:migrate` (migration de desenvolvimento), `db:deploy` (aplica migrations em produção), `db:studio` (UI do banco), `typecheck`.
 
-> O adapter do Prisma é o **libSQL**, não o `better-sqlite3` da documentação oficial: o binding nativo do `better-sqlite3` não carrega sob Bun (`ERR_DLOPEN_FAILED`). O arquivo `.db` é o mesmo SQLite de sempre.
+> O adapter do Prisma é o **pg**, usando a conexão PostgreSQL definida em `DATABASE_URL`.
 
 ## Deploy (Railway)
 
@@ -61,7 +61,7 @@ O log de subida também avisa: `Banco acessível — N nó(s) cadastrado(s)` ou 
 |---|---|
 | `JWT_SECRET` | sem ele não há como assinar/verificar token |
 | `ADMIN_USER` / `ADMIN_PASSWORD` | sem eles ninguém consegue logar |
-| `DATABASE_URL` | ex.: `file:./dev.db` |
+| `DATABASE_URL` | ex.: `postgresql://usuario:senha@localhost:5432/motiva?schema=public` |
 | `TOKEN` | opcional; sem ele os devices não conseguem enviar medição por HTTP |
 | `MQTT_URL` | opcional; sem ele só as rotas de mesh falham |
 | `PORT` | injetada pelo Railway; o servidor a respeita e escuta em `0.0.0.0` |
@@ -73,7 +73,7 @@ Sintoma: os logs mostram `Servidor escutando em [::]:8080` e nada mais — **nen
 - **Bind IPv4-puro.** A rede interna do Railway é IPv6. O servidor usa `hostname: "::"`, que no Linux aceita IPv6 **e** IPv4 — `0.0.0.0` cobriria só IPv4 e ficaria invisível para o proxy. Não troque por `0.0.0.0`.
 - **Health check apontando para uma rota que devolve 404.** A plataforma marca o deploy como não saudável e para de rotear, enquanto o processo segue vivo. Por isso `GET /` responde 200 sem autenticação e sem tocar o banco. Se houver um *Healthcheck Path* configurado no serviço, use `/` ou `/api/status`.
 
-> ⚠️ **SQLite no Railway é efêmero.** O disco do container é recriado a cada deploy, então sensores e medições somem a cada publicação. Para manter os dados, monte um **Volume** e aponte o `DATABASE_URL` para dentro dele (ex.: `file:/data/prod.db`), ou migre para Postgres trocando o `provider` no `schema.prisma` e o adapter em `src/infrastructure/database/prisma.ts`.
+> No Railway, configure `DATABASE_URL` com a URL do serviço PostgreSQL. Em uma base PostgreSQL nova, aplique as migrations antes de iniciar a API.
 
 ## Arquitetura
 

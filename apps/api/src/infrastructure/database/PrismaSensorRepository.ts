@@ -11,13 +11,6 @@ import {
 } from "../../application/errors/ApplicationError";
 import { prisma } from "./prisma";
 
-// Rede de segurança: traduz erro de integridade do banco em erro de aplicação.
-//
-// Os use cases já validam antes (proxy_id existe? id livre?), mas entre a
-// checagem e a escrita há uma corrida — e qualquer caminho novo que esqueça a
-// validação cairia aqui. Sem esta tradução, o erro vira 500 "Erro interno" com
-// um stack do Prisma no log, sem dizer ao usuário o que ele fez de errado.
-// Códigos: https://www.prisma.io/docs/orm/reference/error-reference
 function translatePrismaError(err: unknown): never {
   const code = (err as { code?: string })?.code;
 
@@ -32,8 +25,6 @@ function translatePrismaError(err: unknown): never {
   throw err;
 }
 
-// Linha do banco -> entidade de domínio. `type` é TEXT no SQLite (não há enum),
-// então a conversão acontece aqui, na borda.
 type SensorRow = {
   id: number;
   name: string | null;
@@ -136,8 +127,6 @@ export class PrismaSensorRepository implements SensorRepository {
   }
 
   async update(id: number, data: UpdateSensorData): Promise<Sensor | null> {
-    // Chaves com `undefined` são omitidas para o Prisma não interpretar
-    // "campo ausente no PATCH" como "gravar null".
     const patch = Object.fromEntries(
       Object.entries(data).filter(([, value]) => value !== undefined),
     );
@@ -146,9 +135,6 @@ export class PrismaSensorRepository implements SensorRepository {
       const row = await prisma.sensor.update({ where: { id }, data: patch });
       return toDomain(row);
     } catch (err) {
-      // Só P2025 ("registro não encontrado") vira null → 404. Engolir
-      // todo erro aqui transformava dado inválido (ex.: proxy_id
-      // inexistente) num 404 enganoso, escondendo a causa real.
       if ((err as { code?: string })?.code === "P2025") return null;
       translatePrismaError(err);
     }
