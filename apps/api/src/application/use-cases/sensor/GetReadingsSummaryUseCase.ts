@@ -28,20 +28,20 @@ export class GetReadingsSummaryUseCase {
         ? prisma.$queryRaw<
             { day: string; total: number; high: number | null }[]
           >`
-            SELECT substr(timestamp, 1, 10) AS day, COUNT(*) AS total,
+            SELECT substr(timestamp::text, 1, 10) AS day, COUNT(*) AS total,
                    SUM(CASE WHEN value = 1 THEN 1 ELSE 0 END) AS high
             FROM measurements
             WHERE timestamp >= ${since.toISOString()}
-            GROUP BY substr(timestamp, 1, 10)
+            GROUP BY substr(timestamp::text, 1, 10)
             ORDER BY day
           `
         : prisma.$queryRaw<
             { day: string; total: number; high: number | null }[]
           >`
-            SELECT substr(timestamp, 1, 10) AS day, COUNT(*) AS total,
+            SELECT substr(timestamp::text, 1, 10) AS day, COUNT(*) AS total,
                    SUM(CASE WHEN value = 1 THEN 1 ELSE 0 END) AS high
             FROM measurements
-            GROUP BY substr(timestamp, 1, 10)
+            GROUP BY substr(timestamp::text, 1, 10)
             ORDER BY day
           `,
     ]);

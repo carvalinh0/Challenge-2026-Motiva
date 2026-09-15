@@ -31,7 +31,7 @@ const SENSORS_PER_PAGE = 20;
 const TYPE_FILTERS = [
   { label: "Todos", value: "all" },
   { label: "Sensores", value: "sensor" },
-  { label: "Proxies", value: "proxy" },
+  { label: "Mensageiros", value: "proxy" },
 ] as const;
 
 const STATUS_FILTERS = [
@@ -148,7 +148,7 @@ export function SensorsPage() {
           onClick={() => setModal({ mode: "createProxy" })}
           className="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 dark:border-gray-500 dark:text-gray-100 dark:hover:bg-gray-600"
         >
-          <Plus size={16} /> Proxy
+          <Plus size={16} /> Mensageiro
         </button>
         <button
           onClick={() => setModal({ mode: "create" })}
