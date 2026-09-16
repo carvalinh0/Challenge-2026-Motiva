@@ -26,13 +26,17 @@ export function useSensorActions(reload: () => Promise<void>) {
       sensorId: number,
       action: SensorAction,
       fn: () => Promise<T>,
-      successMessage: (result: T) => string,
+      successMessage: (result: T) => {
+        text: string;
+        tone?: "success" | "error";
+      },
     ) => {
       setRunning((current) => ({ ...current, [sensorId]: action }));
       setFeedback(null);
       try {
         const result = await fn();
-        setFeedback({ tone: "success", text: successMessage(result) });
+        const { text, tone = "success" } = successMessage(result);
+        setFeedback({ tone, text });
         await reload();
       } catch (err) {
         if (err instanceof ApiError && err.isAuthError) logout();
@@ -59,7 +63,10 @@ export function useSensorActions(reload: () => Promise<void>) {
         sensor.id,
         "measure",
         () => sensorsApi.measureNow(sensor.id),
-        (value) => `${sensor.name} mediu: ${nivelFromValue(value)}.`,
+        (value) => ({
+          tone: "success",
+          text: `${sensor.name} mediu: ${nivelFromValue(value)}.`,
+        }),
       ),
     [run],
   );
@@ -70,8 +77,10 @@ export function useSensorActions(reload: () => Promise<void>) {
         sensor.id,
         "health",
         () => sensorsApi.healthcheck(sensor.id),
-        (result) =>
-          `${sensor.name} está ${result?.alive ? "vivo" : "sem resposta"}.`,
+        (result) => ({
+          tone: result?.alive ? "success" : "error",
+          text: `${sensor.name} está ${result?.alive ? "vivo" : "sem resposta"}.`,
+        }),
       ),
     [run],
   );
@@ -101,8 +110,10 @@ export function useSensorActions(reload: () => Promise<void>) {
         sensor.id,
         "calibrate",
         () => sensorsApi.calibrate(sensor.id),
-        (result) =>
-          `Calibração de ${sensor.name} ${result?.ok ? "concluída" : "falhou"}.`,
+        (result) => ({
+          tone: result?.ok ? "success" : "error",
+          text: `Calibração de ${sensor.name} ${result?.ok ? "concluída" : "falhou"}.`,
+        }),
       );
     } else if (action === "reset") {
       await run(
@@ -112,7 +123,7 @@ export function useSensorActions(reload: () => Promise<void>) {
           sensor.type === "proxy"
             ? sensorsApi.resetProxy(sensor.id)
             : sensorsApi.reset(sensor.id),
-        () => `"${sensor.name}" resetado.`,
+        () => ({ tone: "success", text: `"${sensor.name}" resetado.` }),
       );
     } else {
       await run(
@@ -122,7 +133,7 @@ export function useSensorActions(reload: () => Promise<void>) {
           sensor.type === "proxy"
             ? sensorsApi.removeProxy(sensor.id)
             : sensorsApi.remove(sensor.id),
-        () => `"${sensor.name}" excluído.`,
+        () => ({ tone: "success", text: `"${sensor.name}" excluído.` }),
       );
     }
   }, [confirmation, run]);
