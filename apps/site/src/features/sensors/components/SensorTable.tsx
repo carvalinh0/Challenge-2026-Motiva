@@ -77,7 +77,7 @@ export function SensorTable({
                         : "bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-200"
                     }`}
                   >
-                    {sensor.type}
+                    {sensor.type === "proxy" ? "Mensageiro" : "Sensor"}
                   </span>
                 </td>
                 <td className="p-2">
