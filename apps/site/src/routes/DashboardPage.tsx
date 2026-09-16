@@ -115,16 +115,16 @@ export function DashboardPage() {
       </PageHeader>
 
       {feedback && (
-        <Alert tone={feedback.tone === "success" ? "success" : "error"}>
+        <Alert tone="info">
           {feedback.text}
         </Alert>
       )}
 
       {broadcast && (
         <Alert tone="info">
-          Comando enviado para a mesh. A janela de resposta é de ~30s
+          Comando enviado para a rede. A janela de resposta é de ~30s
           {broadcast === "measure" ? " (medição pode passar de 1min)" : ""} — os
-          nós respondem conforme acordam.
+          sensores respondem conforme acordam.
         </Alert>
       )}
 
