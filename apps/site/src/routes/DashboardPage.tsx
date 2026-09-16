@@ -143,7 +143,7 @@ export function DashboardPage() {
           infoClassName="text-black dark:text-white"
         />
         <Card
-          title="Proxys"
+          title="Mensageiros"
           info={loading ? "…" : filteredStats.proxies.length}
           icon={Wifi}
           hint=""

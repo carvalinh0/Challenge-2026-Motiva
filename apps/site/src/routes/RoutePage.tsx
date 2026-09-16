@@ -253,7 +253,7 @@ export function RoutePage() {
         />
         <Card
           title="Deslocamento total"
-          info={plan ? formatDuration(plan.travelSeconds) : "0km"}
+          info={plan ? formatDuration(plan.travelSeconds) : "0min"}
           hint="Tempo total de todo o percurso"
           icon={Route}
           titleClassName="text-[#5e22f3] dark:text-[#8f61ff]"

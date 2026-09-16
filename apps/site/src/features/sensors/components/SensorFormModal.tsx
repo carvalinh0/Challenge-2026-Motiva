@@ -66,7 +66,7 @@ export function SensorFormModal({
   const title = editing
     ? `Editar ${initial?.id}`
     : isProxy
-      ? "Novo proxy"
+      ? "Novo mensageiro"
       : "Novo sensor";
 
   return (
@@ -119,7 +119,7 @@ export function SensorFormModal({
           </div>
           {!isProxy && (
             <Field
-              label="Id do proxy responsável"
+              label="Id do mensageiro responsável"
               value={form.proxy_id}
               onValueChange={(v) => update("proxy_id", v)}
             />
