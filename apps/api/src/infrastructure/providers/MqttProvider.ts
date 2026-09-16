@@ -166,7 +166,7 @@ export class MqttProvider implements MeshGateway {
                 resolve: (result) => {
                     log.info(
                         "mqtt",
-                        `<- ${action} node ${targetNode} respondeu em ${(performance.now() - startedAt).toFixed(0)}ms (result=${result.result})`,
+                        `<- ${action} sensor ${targetNode} respondeu em ${(performance.now() - startedAt).toFixed(0)}ms (result=${result.result})`,
                     );
                     resolve(result);
                 },
@@ -174,9 +174,9 @@ export class MqttProvider implements MeshGateway {
                     this.waiters.delete(waiter);
                     log.warn(
                         "mqtt",
-                        `timeout esperando ${action} de node ${targetNode} (${timeoutMs}ms sem resposta)`,
+                        `timeout esperando ${action} do sensor ${targetNode} (${timeoutMs}ms sem resposta)`,
                     );
-                    reject(new Error("timeout esperando resposta da mesh"));
+                    reject(new Error("timeout esperando resposta da rede"));
                 }, timeoutMs),
             };
 

@@ -59,7 +59,7 @@ export function useSensorActions(reload: () => Promise<void>) {
         sensor.id,
         "measure",
         () => sensorsApi.measureNow(sensor.id),
-        (value) => `${sensor.id} mediu: ${nivelFromValue(value)}.`,
+        (value) => `${sensor.name} mediu: ${nivelFromValue(value)}.`,
       ),
     [run],
   );
@@ -71,7 +71,7 @@ export function useSensorActions(reload: () => Promise<void>) {
         "health",
         () => sensorsApi.healthcheck(sensor.id),
         (result) =>
-          `${sensor.id} está ${result?.alive ? "vivo" : "sem resposta"}.`,
+          `${sensor.name} está ${result?.alive ? "vivo" : "sem resposta"}.`,
       ),
     [run],
   );
@@ -102,7 +102,7 @@ export function useSensorActions(reload: () => Promise<void>) {
         "calibrate",
         () => sensorsApi.calibrate(sensor.id),
         (result) =>
-          `Calibração de ${sensor.id} ${result?.ok ? "concluída" : "falhou"}.`,
+          `Calibração de ${sensor.name} ${result?.ok ? "concluída" : "falhou"}.`,
       );
     } else if (action === "reset") {
       await run(
@@ -112,7 +112,7 @@ export function useSensorActions(reload: () => Promise<void>) {
           sensor.type === "proxy"
             ? sensorsApi.resetProxy(sensor.id)
             : sensorsApi.reset(sensor.id),
-        () => `"${sensor.id}" resetado.`,
+        () => `"${sensor.name}" resetado.`,
       );
     } else {
       await run(
@@ -122,7 +122,7 @@ export function useSensorActions(reload: () => Promise<void>) {
           sensor.type === "proxy"
             ? sensorsApi.removeProxy(sensor.id)
             : sensorsApi.remove(sensor.id),
-        () => `"${sensor.id}" excluído.`,
+        () => `"${sensor.name}" excluído.`,
       );
     }
   }, [confirmation, run]);
